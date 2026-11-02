@@ -3,6 +3,7 @@
 //! `check` tests the forward models (cfsem's dipole and current loops) against textbook results.
 
 mod check;
+mod layout;
 mod magnet;
 mod solve;
 mod tracker;
@@ -16,8 +17,9 @@ fn main() {
             }
         }
         "solve" => solve::run(),
+        "layout" => layout::run(),
         m => {
-            eprintln!("unknown mode {m}; modes: check, solve");
+            eprintln!("unknown mode {m}; modes: check, solve, layout");
             std::process::exit(2);
         }
     }

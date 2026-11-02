@@ -38,7 +38,9 @@ magnet-tracking started simulation-first (2026-11-02): `check` validates the for
 cfsem's dipole to 1.2e-15, the magnet as cfsem loops against Derby and Olbert's closed form to
 7.1e-6, and the dipole's error least at L/D 0.87 (theory 0.866); `solve` recovers a pose (9
 unknowns) exactly, from a cold start in 7 ms, and reaches the Cramer-Rao bound with noise; an L/D
-0.867 magnet keeps the dipole's bias under half the noise 15 mm out. Next: sensor layouts.
+0.867 magnet keeps the dipole's bias under half the noise 15 mm out; `layout` picks a 4 x 4
+MMC5983MA board (under 1 mm to 120 mm) and shows calibration (gains to ~0.1%, positions under
+0.1 mm), not sensor noise, limits a real board. Next: calibration in simulation.
 Hardware later.
 The other projects are a README each until they start.
 

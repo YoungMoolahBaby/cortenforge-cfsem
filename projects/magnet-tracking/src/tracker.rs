@@ -116,7 +116,24 @@ pub struct Fit {
 /// Levenberg-Marquardt (Marquardt's diagonal scaling) from `init`. A dipole's field is the same
 /// for (u, m) and (-u, -m), so the result is turned to a positive moment.
 pub fn solve(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool) -> Fit {
-    let mut f = lm(meas, array, init, fit_m);
+    solve_w(
+        meas,
+        array,
+        init,
+        fit_m,
+        &DVector::from_element(meas.len(), 1.0),
+    )
+}
+
+/// As `solve`, each reading weighted by `w` (1 / its noise; 0 drops it, e.g. a saturated axis).
+pub fn solve_w(
+    meas: &DVector<f64>,
+    array: &Array,
+    init: &Pose,
+    fit_m: bool,
+    w: &DVector<f64>,
+) -> Fit {
+    let mut f = lm(meas, array, init, fit_m, w);
     if f.pose.m < 0.0 {
         f.pose.m = -f.pose.m;
         f.pose.u = -f.pose.u;
@@ -124,15 +141,18 @@ pub fn solve(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool) -> Fi
     f
 }
 
-fn lm(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool) -> Fit {
+fn lm(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool, w: &DVector<f64>) -> Fit {
     let mut pose = *init;
-    let mut r = model(&pose, array) - meas;
+    let mut r = (model(&pose, array) - meas).component_mul(w);
     let mut cost = r.norm_squared();
     let mut lambda = 1e-3;
     let mut iters = 0;
     for it in 0..200 {
         iters = it + 1;
-        let j = jacobian(&pose, array, fit_m);
+        let mut j = jacobian(&pose, array, fit_m);
+        for (k, wk) in w.iter().enumerate() {
+            j.row_mut(k).scale_mut(*wk);
+        }
         let jtj = j.transpose() * &j;
         let g = j.transpose() * &r;
         let mut improved = false;
@@ -147,7 +167,7 @@ fn lm(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool) -> Fit {
             };
             let d = -ch.solve(&g);
             let trial = step(&pose, &d, fit_m);
-            let rt = model(&trial, array) - meas;
+            let rt = (model(&trial, array) - meas).component_mul(w);
             let ct = rt.norm_squared();
             if ct < cost {
                 let rel = (cost - ct) / cost.max(1e-300);
@@ -174,4 +194,14 @@ fn lm(meas: &DVector<f64>, array: &Array, init: &Pose, fit_m: bool) -> Fit {
 pub fn crb(pose: &Pose, array: &Array, sigma: f64, fit_m: bool) -> DMatrix<f64> {
     let j = jacobian(pose, array, fit_m);
     (j.transpose() * j).try_inverse().expect("identifiable") * (sigma * sigma)
+}
+
+/// The bound for weighted readings (w = 1 / noise, 0 for a dropped reading): (J^T W^2 J)^-1, or
+/// None if the remaining readings can't pin the pose down.
+pub fn crb_w(pose: &Pose, array: &Array, fit_m: bool, w: &DVector<f64>) -> Option<DMatrix<f64>> {
+    let mut j = jacobian(pose, array, fit_m);
+    for (k, wk) in w.iter().enumerate() {
+        j.row_mut(k).scale_mut(*wk);
+    }
+    (j.transpose() * j).try_inverse()
 }

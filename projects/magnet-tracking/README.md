@@ -14,6 +14,8 @@ Run: `cargo run --release -p magnet-tracking -- <mode>`.
 - `check`: the forward models against textbook results (under a second).
 - `solve`: the pose solver on a simulated 4 x 4 array: exact recovery, cold starts, noise
   against the Cramer-Rao bound, bias by magnet shape (about a second).
+- `layout`: real magnetometers (MMC5983MA, LIS3MDL) with saturation; the weighted solver against
+  its bound, 32 layouts over the workspace, and calibration errors (about 3 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -88,11 +90,79 @@ volume and Br:
   the board; a cube-like magnet (L/D 1) is biased 5.6x the noise there, a long one 43x. Close
   in, any other shape needs the full model (loops or the closed form) in the solver.
 
+## Sensor layouts (`layout`, 2026-11-02)
+
+Two magnetometers, numbers from their datasheets:
+
+| Sensor | Noise per axis (rms) | Range | Setting |
+|---|---|---|---|
+| MEMSIC MMC5983MA (Rev. A, 2019) | 0.04 uT (0.4 mG) | +-800 uT (+-8 G) | BW = 00, 50 Hz output |
+| ST LIS3MDL (DocID024204 Rev 6) | 0.32 uT x, y; 0.41 uT z (3.2 / 4.1 mG) | +-1200 uT (+-12 G) | ultra-high performance |
+
+- MEMSIC gives 0.4 mG as "total RMS noise"; it is taken per axis here, the pessimistic reading.
+  Faster MMC5983MA settings are noisier (0.6 mG and up, to 1000 Hz output). Melexis' MLX90393
+  (5-50 mT range) gives its noise only as a plot, so it is left out.
+- A sensor reading past its range on any axis is dropped from the fit; each reading is weighted
+  by 1 / its noise (the LIS3MDL's z is noisier).
+- Check: the weighted solver against the weighted Cramer-Rao bound, 4000 trials, 4 x 4 at
+  30 mm. MMC5983MA with the magnet 18 mm up and one sensor saturated (dropped): x 1.07 / 1.07,
+  y 1.07 / 1.07, z 0.99 / 0.99 um; LIS3MDL 50 mm up: x 61.0 / 59.9, y 61.7 / 61.4, z 77.7 /
+  77.7 um (spread / bound). The first run at 1000 trials read 3-4% over for the LIS3MDL; at 4000
+  the largest gap is 1.9%, inside the Monte Carlo's own 1.1%-per-axis uncertainty at under 2 sigma.
+
+The position error bound (moment and background fitted) over a workspace: the magnet anywhere in
+x, y within 40 mm of the centre (20 mm steps), axis up, sideways or diagonal; the 95th
+percentile at each height:
+
+| MMC5983MA | Board | 20 mm | 40 mm | 60 mm | 80 mm | 100 mm | 120 mm | Most saturated |
+|---|---|---|---|---|---|---|---|---|
+| 3 x 3 at 30 mm | 60 mm | 28 um | 28 um | 96 um | 286 um | 759 um | 1.8 mm | 2 of 9 |
+| 4 x 4 at 30 mm | 90 mm | 4 um | 9 um | 41 um | 136 um | 365 um | 856 um | 2 of 16 |
+| 4 x 4 at 40 mm | 120 mm | 7 um | 9 um | 36 um | 110 um | 285 um | 653 um | 2 of 16 |
+| 5 x 5 at 30 mm | 120 mm | 3 um | 7 um | 28 um | 89 um | 234 um | 540 um | 2 of 25 |
+| 6 x 6 at 30 mm | 150 mm | 2 um | 6 um | 24 um | 71 um | 178 um | 395 um | 2 of 36 |
+
+| LIS3MDL | Board | 20 mm | 40 mm | 60 mm | 80 mm | 100 mm | 120 mm |
+|---|---|---|---|---|---|---|---|
+| 4 x 4 at 30 mm | 90 mm | 38 um | 77 um | 370 um | 1.2 mm | 3.2 mm | 7.8 mm |
+| 4 x 4 at 40 mm | 120 mm | 33 um | 80 um | 321 um | 995 um | 2.6 mm | 6.0 mm |
+| 6 x 6 at 30 mm | 150 mm | 23 um | 53 um | 214 um | 643 um | 1.6 mm | 3.6 mm |
+
+(all 32 layouts, 3 x 3 to 6 x 6 at 20-50 mm pitch, in the run's output.)
+
+- The MMC5983MA's 8x lower noise is worth about 8x in error: with it 4 x 4 at 30 mm pitch or
+  wider, and every 5 x 5 and 6 x 6, stay under 1 mm (95th percentile) to 120 mm; the LIS3MDL
+  reaches 60-80 mm.
+- Saturation near the board costs little: at most 5 of 9 sensors (3 x 3 at 20 mm) and usually 2
+  drop out; the rest still fix the pose. Small pitches suffer most close in.
+- Past 4 x 4 at 30-40 mm the gains are modest (6 x 6 roughly halves the error at 120 mm for 2.25x
+  the sensors). Chosen for a first board: 4 x 4 MMC5983MA at 30 mm (90 mm across).
+
+What the noise floor leaves out: calibration. The same board (MMC5983MA, 4 x 4 at 30 mm) with
+random gain errors per axis or sensors placed off their nominal positions, no noise, 300 random
+boards; position bias, median / 95th percentile (median over the noise's bound):
+
+| Board error | 20 mm up | 60 mm | 120 mm |
+|---|---|---|---|
+| gain 0.1% per axis | 13 / 27 um (8.6x) | 28 / 50 um (0.9x) | 354 / 596 um (0.5x) |
+| gain 1% per axis | 129 / 270 um (86x) | 277 / 502 um (9.0x) | 3.6 / 6.3 mm (4.9x) |
+| sensors 0.1 mm off | 158 / 277 um (105x) | 207 / 364 um (6.7x) | 367 / 692 um (0.5x) |
+| sensors 0.5 mm off | 791 / 1383 um (526x) | 1.0 / 1.8 mm (34x) | 1.8 / 3.5 mm (2.5x) |
+
+- Calibration, not noise, sets the real accuracy: 1% gain errors or sensors 0.1 mm out of place
+  bias the pose 100x the noise floor near the board. Getting to the noise floor needs gains to
+  about 0.1% and positions to well under 0.1 mm, so the board must be calibrated against a known
+  source (a magnet at known poses, or a coil).
+- Far out, gain errors bite through the Earth's field: 0.1% of its 45 uT is a noise-sized false
+  signal against the magnet's few uT, so the bias grows again at 120 mm.
+
 ## Plan
 
 1. Forward models (done).
 2. A simulated sensor array and a pose solver (done): exact recovery, cold starts, the
    Cramer-Rao bound reached, model bias by magnet shape.
-3. Accuracy over the workspace for sensor layouts (count, spacing), with a realistic sensor's
-   noise and the Earth's field.
-4. Tracking a moving magnet along a path (warm starts, speed).
+3. Sensor layouts (done): two real magnetometers, saturation, 32 layouts; a 4 x 4 MMC5983MA
+   board at 30 mm stays under 1 mm to 120 mm; calibration, not noise, limits a real board.
+4. Calibration in simulation: recover each sensor's gains and position from a known source
+   (a magnet at known poses, or a coil), and how close that gets to the noise floor.
+5. Tracking a moving magnet along a path (warm starts, speed).
