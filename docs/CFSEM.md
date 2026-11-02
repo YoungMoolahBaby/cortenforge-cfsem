@@ -64,3 +64,9 @@ setup, works) and the date, with file:line in the crate source
   -2 pi mu0 R J_phi; that node (i, j) is row i * nz + j; or that boundary rows are identity rows
   taking the boundary Psi. The first is in the Python docstring (flux_solver.py:149), the other
   two only in the source.
+- works, 2026-11-02: `flux_circular_filament_par` makes a good free-boundary Green's function.
+  A Picard-iterated free-boundary equilibrium (fusion-visualizer `shafranov`, `shape`) takes the
+  grid edge flux of the plasma from it each iteration; at convergence the grid solution matches
+  the Green's sum for the same current to 3.4e-7 at 12,205 vacuum nodes. The vertical field the
+  solver needs to centre a circular plasma matches Shafranov's formula to -2.71 / -1.38 / -0.22%
+  at a/R0 = 0.3 / 0.2 / 0.1, shrinking with a/R0 as the large-aspect-ratio formula should.

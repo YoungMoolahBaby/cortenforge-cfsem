@@ -3,7 +3,12 @@
 //! `check` tests cfsem's Grad-Shafranov operator and its flux and field conventions.
 
 mod check;
+mod contour;
+mod equilibrium;
 mod gs;
+mod plot;
+mod shafranov;
+mod shape;
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "check".into());
@@ -13,8 +18,10 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        "shafranov" => shafranov::run(),
+        "shape" => shape::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check");
+            eprintln!("unknown mode {other:?}; modes: check, shafranov, shape");
             std::process::exit(2);
         }
     }
