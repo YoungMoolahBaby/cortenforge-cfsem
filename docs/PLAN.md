@@ -1,7 +1,8 @@
 # Plan
 
-Status: coil-designer started: `check` validates cfsem's circular-filament API (43 of 43 pass,
-2026-11-02); next is real winding packs, then optimization and a printable former (see its README).
+Status: coil-designer started (2026-11-02): `check` validates cfsem and the turn-by-turn coil model
+(58 of 58 pass); `pack` sizes a real Helmholtz pair. Next: optimization with sim-opt, then a
+printable former (see its README).
 The other projects are a README each until they start.
 
 ## Order

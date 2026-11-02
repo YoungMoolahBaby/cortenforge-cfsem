@@ -31,9 +31,20 @@ setup, works) and the date, with file:line in the crate source
 - API, 2026-11-02: the Rust crate lacks the coil-level helpers the Python package has: Lyle's and
   Wien's self-inductance, `self_inductance_axisymmetric_coil`, `mutual_inductance_of_cylindrical_coils`
   (cfsem/__init__.py:248, 463, 562, 620, written in Python). A Rust user filamentizes winding packs
-  and sums self-inductance themselves.
+  and sums self-inductance themselves: about 60 lines in coil-designer (src/coil.rs `inductance`,
+  `ring_self_inductance`).
 - API, 2026-11-02: `flux_circular_filament_scalar` requires a nonzero wire radius
   (physics/circular_filament.rs:115) while the vector form takes zero for an ideal filament, so the
   scalar ideal-loop flux means scaling `vector_potential_circular_filament_scalar` by 2 pi R by hand.
 - perf, 2026-11-02: 50 ns per loop-point serial (1M points x 2 loops in 101 ms);
   `flux_density_circular_filament_par` takes 31 ms on 6 cores / 12 threads, a 3.3x speedup.
+- works, 2026-11-02: a turn-by-turn coil model on cfsem's kernels (one filament per turn, mutual
+  terms from the ideal-filament potential, self terms from the finite-wire model) checks out:
+  inductance matches independent kernels (Kirchhoff + Maxwell's closed form) to 1.4e-6 and
+  Wheeler's multilayer formula to 0.54%; the centre field of thick solenoids matches Montgomery's
+  uniform-current-density formula to 1.4-1.9e-5 (`coil-designer -- check`, checks 9-12).
+- works, 2026-11-02: inside the wire, the finite-thickness potential is a cubic in the local
+  coordinates (physics/circular_filament.rs, `t <= 1` branch of
+  `vector_potential_circular_filament_finite_thickness_scalar_near`), so a 4 x 16 Gauss grid
+  averages it exactly. Reading the source made that quadrature choice easy; the docstring could
+  say it.
