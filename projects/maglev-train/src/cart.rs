@@ -20,6 +20,7 @@ use cortenforge::sim::mjcf::load_model;
 use nalgebra::Vector3;
 
 use crate::corner::{Table, corner_coil};
+use crate::motor::MotorTable;
 
 const G: f64 = 9.81;
 const MASS: f64 = 0.5; // kg, cart with its nominal payload
@@ -57,7 +58,8 @@ struct Shared {
     current: [f64; 4],
     gap: [f64; 4],
     gap_rate: [f64; 4],
-    thrust: f64,
+    /// (A) linear-motor thrust current.
+    iq: f64,
     payload_on: bool,
 }
 
@@ -86,7 +88,24 @@ fn trip(t: f64) -> (f64, f64, f64) {
     }
 }
 
-fn build_model(tab: Arc<Table>, shared: Arc<Mutex<Shared>>) -> Model {
+/// Motor wrench per amp at cart position x, interpolated linearly between tables at their gaps.
+fn motor_wrench(motor: &[(f64, MotorTable)], x: f64, gap: f64) -> [f64; 4] {
+    let k = motor
+        .iter()
+        .position(|(g, _)| *g >= gap)
+        .unwrap_or(motor.len() - 1)
+        .clamp(1, motor.len() - 1);
+    let ((g0, t0), (g1, t1)) = (&motor[k - 1], &motor[k]);
+    let u = ((gap - g0) / (g1 - g0)).clamp(0.0, 1.0);
+    let (a, b) = (t0.at(x), t1.at(x));
+    [0, 1, 2, 3].map(|c| a[c] * (1.0 - u) + b[c] * u)
+}
+
+fn build_model(
+    tab: Arc<Table>,
+    shared: Arc<Mutex<Shared>>,
+    motor: Arc<Vec<(f64, MotorTable)>>,
+) -> Model {
     let sites: String = CORNERS
         .iter()
         .enumerate()
@@ -127,15 +146,24 @@ fn build_model(tab: Arc<Table>, shared: Arc<Mutex<Shared>>) -> Model {
                     d.qfrc_passive[j] += jp[(2, j)] * f;
                 }
             }
-            // Propulsion along the track at magnet height, and the payload's weight, at their points.
+            // The linear motor: its wrench per amp (thrust, lift, moments about x and y, at the
+            // centre of mass) from the cfsem tables, at this position and mean gap.
+            let mean_gap = s.gap.iter().sum::<f64>() / 4.0;
+            let w = motor_wrench(&motor, d.qpos[0], mean_gap);
+            let com = d.xipos[body];
+            let (jc, jr) = mj_jac(m, d, body, &com);
+            // The payload's weight at its point.
             let at = |p: Vector3<f64>| d.xpos[body] + d.xmat[body] * p;
-            let thrust_point = at(Vector3::new(0.0, 0.0, HALF.2));
-            let (jt, _) = mj_jac(m, d, body, &thrust_point);
             let payload = if s.payload_on { PAYLOAD.0 * G } else { 0.0 };
             let pp = at(Vector3::new(PAYLOAD.1, PAYLOAD.2, HALF.2));
             let (jw, _) = mj_jac(m, d, body, &pp);
             for j in 0..m.nv {
-                d.qfrc_passive[j] += jt[(0, j)] * s.thrust - jw[(2, j)] * payload;
+                d.qfrc_passive[j] += s.iq
+                    * (jc[(0, j)] * w[0]
+                        + jc[(2, j)] * w[1]
+                        + jr[(0, j)] * w[2]
+                        + jr[(1, j)] * w[3])
+                    - jw[(2, j)] * payload;
             }
         },
     )));
@@ -162,6 +190,8 @@ fn mode_gains(m_eq: f64, k: f64, b: f64) -> ModeGains {
 
 struct Log {
     t: Vec<f64>,
+    iq: Vec<f64>,
+    stator: Vec<f64>,
     x: Vec<f64>,
     gap: Vec<[f64; 4]>,
     current: Vec<[f64; 4]>,
@@ -223,7 +253,16 @@ pub fn run() {
     let coil = corner_coil();
     let tab = Arc::new(Table::build(&coil));
     let shared = Arc::new(Mutex::new(Shared::default()));
-    let model = Arc::new(build_model(tab.clone(), shared.clone()));
+    // Motor tables at four gaps (the cart rides between about 5 and 6.5 mm).
+    let motor: Arc<Vec<(f64, MotorTable)>> = Arc::new(
+        [0.005, 0.0055, 0.006, 0.0065]
+            .iter()
+            .map(|&g| (g, MotorTable::build(g, 24)))
+            .collect(),
+    );
+    let kf = motor_wrench(&motor, 0.0, 0.005964)[0];
+    let copper = motor[2].1.copper;
+    let model = Arc::new(build_model(tab.clone(), shared.clone(), motor.clone()));
     let mut data = model.make_data();
     let inertia = model.body_inertia[1];
     let g0 = tab.zero_power_gap(MASS * G / 4.0);
@@ -274,6 +313,8 @@ pub fn run() {
     };
     let mut log = Log {
         t: vec![],
+        iq: vec![],
+        stator: vec![],
         x: vec![],
         gap: vec![],
         current: vec![],
@@ -339,10 +380,13 @@ pub fn run() {
         }
         // Propulsion: track the trip profile (mass feedforward plus PD), and the payload.
         let (xr, vr, ar) = trip(t);
-        s.thrust = MASS * ar + 40.0 * (xr - data.qpos[0]) + 12.0 * (vr - data.qvel[0]);
+        let f_cmd = MASS * ar + 40.0 * (xr - data.qpos[0]) + 12.0 * (vr - data.qvel[0]);
+        s.iq = (f_cmd / kf).clamp(-3.0, 3.0);
         s.payload_on = t >= T_PAYLOAD;
         if step % 40 == 0 {
             log.t.push(t);
+            log.iq.push(s.iq);
+            log.stator.push(s.iq * s.iq * copper);
             log.x.push(data.qpos[0]);
             log.gap.push(gap);
             log.current.push(s.current);
@@ -412,6 +456,14 @@ pub fn run() {
         "   stopped at x = {:.4} m (station {STATION} m, {:+.1} mm)",
         xf,
         (xf - STATION) * 1e3
+    );
+    let dt_log = log.t.get(1).copied().unwrap_or(0.0) - log.t.first().copied().unwrap_or(0.0);
+    let peak = log.iq.iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+    let energy: f64 = log.stator.iter().sum::<f64>() * dt_log;
+    println!(
+        "   linear motor: thrust constant {kf:.4} N/A, copper {copper:.2} W/A^2; peak thrust current {peak:.3} A, \
+         stator energy for the trip {energy:.3} J (peak {:.2} W)",
+        log.stator.iter().fold(0.0_f64, |a, &v| a.max(v))
     );
     for (label, payload, idx) in [
         ("no payload", false, phase(0.7, 1.0)),

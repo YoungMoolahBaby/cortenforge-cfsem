@@ -90,3 +90,21 @@ setup, works) and the date, with file:line in the crate source
   agree to 1e-8 (maglev-train `check`). The batch oriented-loop field
   (`flux_density_circular_filament_cartesian_par`) maps a 4-magnet cart's 3D stray field
   directly.
+- bug, 2026-11-02: `mutual_inductance_circular_to_linear_scalar` (physics/circular_filament.rs:1434)
+  takes the segment midpoint wrongly. Its radius is `path_r + path_dr / 2.0` (:1453): the start
+  radius plus half the segment's whole horizontal length, not half its change in radius, so only
+  a segment pointing straight outward gets the right radius. Its angle is the mean of the two
+  endpoint `atan2` values (:1455), which wraps wrongly across the -x axis. Measured against the
+  same formula evaluated at the true (Cartesian) midpoint, for a loop of radius 10 mm
+  (maglev-train `motor`, probe 0): a 10 mm tangential segment at r 20 mm is 40% low; 10 mm
+  diagonal segments are 14% low going outward and 46% low going inward; a 0.2 mm segment
+  crossing the -x axis comes out with the wrong sign. In use (coenergy thrust of a flat stator
+  coil on magnet loops), the error converges only to first order with segment length (9% at
+  1 mm, 2% at 0.25 mm) where the midpoint rule should be second order. Fix: take the midpoint in
+  Cartesian coordinates, r = hypot(xm, ym), phi = atan2(ym, xm). With that one change the same
+  thrust matches an independent Lorentz-force calculation to 4.0e-4 at 1 mm and 2.6e-5 at
+  0.25 mm (second order).
+- works, 2026-11-02: `flux_density_linear_filament` for flat stator coils (exact straight
+  segments, mirrored in a steel rail) drives a linear-motor model whose Lorentz-force thrust on
+  magnet loops agrees with the coenergy route to 2.6e-5 once the midpoint above is corrected
+  (maglev-train `motor`).

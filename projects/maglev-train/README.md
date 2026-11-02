@@ -57,8 +57,12 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
 - `corner`: one corner in CortenForge's simulator: open-loop instability vs prediction, gap
   control through the coil, zero-power control, a sensor-noise sweep; plots in
   `out/corner_*.svg` (about 4 s).
-- `cart`: the whole cart: lift-off, an off-centre payload, a 1.2 m trip to a station, against
-  the zero-power attitude predicted from the force table; plot in `out/cart.svg` (about 4 s).
+- `cart`: the whole cart: lift-off, an off-centre payload, a 1.2 m trip to a station driven by the
+  linear motor, against the zero-power attitude predicted from the force table; plot in
+  `out/cart.svg` (about 35 s, most of it building the motor tables).
+- `motor`: the linear motor: cfsem's circular-to-linear mutual against the true midpoint,
+  per-phase thrust, thrust by Lorentz force vs coenergy, the commutated thrust constant and
+  ripple, copper loss (about 22 s).
 
 ## The model (`src/em.rs`)
 
@@ -170,9 +174,9 @@ One body (140 x 80 x 30 mm, 0.5 kg with its nominal payload; I_xx 3.04e-4, I_yy 
 on four joints: slide along the track, heave, pitch, roll (sideways and yaw assumed guided).
 Sites mark the four magnet faces, 15 mm above the centre of mass, at +-50 / +-25 mm. Inside
 sim-core's `cb_passive` each corner's gap and gap rate come from its site and `mj_jac_site`, and
-the cfsem force table's pull F(g, I) is added to the joint forces as J^T F; the propulsion force (a
-stand-in for the linear motor, at magnet height) and the payload's weight go in the same way at
-their points (`mj_jac`). Coil currents and the controller run each step outside, sharing state
+the cfsem force table's pull F(g, I) is added to the joint forces as J^T F; the linear motor's
+wrench (from `motor`'s tables at the cart's position and mean gap, at the centre of mass) and
+the payload's weight go in the same way (`mj_jac`). Coil currents and the controller run each step outside, sharing state
 with the callback.
 
 Control is modal. A rigid cart has three vertical motions and four magnets, so four independent
@@ -183,23 +187,54 @@ corner currents are built from those three, so warp current is zero by construct
 sensor (1 um, 2 kHz, 100 Hz derivative filter), current loops and limits as `corner`.
 
 Timeline: lift-off ramp to 0.3 s; +100 g set down at (+30, +15) mm at 1 s; depart at 2.5 s for a
-station 1.2 m away (0.3 m/s, 0.5 m/s^2, thrust tracking a trapezoidal profile).
+station 1.2 m away (0.3 m/s, 0.5 m/s^2): the trip controller asks for a force (mass feedforward
+plus PD on a trapezoidal profile) and the linear motor gets that force over its thrust
+constant as current. (Stage 3 first ran with a stand-in force at magnet height; stage 4 put the
+motor in, with the same results to within 1 um.)
 
 | Phase | Corner gaps (RR / FR / FL / RL) | Corner currents | Coil power |
 |---|---|---|---|
 | hovering, 0.7-1.0 s | 5.964 / 5.964 / 5.964 / 5.964 mm | within +-0.012 A | 195 mW |
-| trip, 2.5-8.0 s | largest excursion 69 um | | 240 mW mean |
+| trip, 2.5-8.0 s | largest excursion 69.6 um | | 241 mW mean |
 | at the station, 8.5-9.0 s | 6.047 / 5.551 / 5.034 / 5.530 mm | within +-0.007 A | 225 mW |
 
-- Stops at x = 1.2000 m. With the payload on, the cart settles tilted (down towards the load) in
+- Stops at x = 1.2000 m. The motor peaks at 0.805 A of thrust current; the stator spends 1.55 J
+  on the whole trip (peak 1.56 W). With the payload on, the cart settles tilted (down towards the load) in
   the attitude where the magnets alone carry everything: the currents return to zero.
 - That attitude, solved independently from the force table (total force and two moments, three
-  mode gaps), matches the simulation to 0.5 um without the payload and 0.6 um with it. The first
+  mode gaps), matches the simulation to 0.5 um without the payload and 0.7 um with it. The first
   version of that solver missed by 17 um: it left out that the centre of mass sits 15 mm below
   the magnet faces, so tilting moves the weight's line of action (about 6% of the roll moment).
 - Setting 100 g down in one instant drives the nearest corner's current to its 10 A limit for a
   moment; a real load set down over a fraction of a second would be gentler.
 - Coil power is the sensor noise through the gains (about 50-60 mW a corner).
+
+## The linear motor (`motor`, 2026-11-02)
+
+The lift magnets alternate polarity along each row, which is the field a linear synchronous
+motor needs: the Transrapid trick of letting the levitation magnets double as the motor's field.
+A flat three-phase stator lies on the rail's underside in the gap (0.75 mm below the steel; a
+printed-circuit coil board, say): full-pitch coils 24 mm across, 20 turns of AWG 24, one coil
+track under each magnet row with phases reversed between rows, as the rows' polarities are.
+Coils are cfsem linear filaments mirrored in the steel; thrust is the Lorentz force on the
+magnets' equivalent loops.
+
+- First design: coil pitch = magnet spacing (100 mm). Each phase's thrust came in narrow spikes
+  (195 mN/A when a 12 mm magnet sat right under a coil side, under 10 mN/A elsewhere), so no
+  commutation could make it smooth (354% ripple).
+- Second design: pole pitch 100/7 = 14.3 mm, close to the magnet size, and an odd fraction of
+  the magnet spacing so the two magnets in a row sit pi apart electrically, as their opposite
+  polarities need. Per-phase thrust is then sinusoidal (205.9 mN/A peak a phase).
+- Thrust, two ways for phase A at 1 A: the Lorentz force on the magnet loops, and the coenergy
+  route I dPsi/dx with Psi from cfsem's `mutual_inductance_circular_to_linear` on coil sides
+  split into short pieces. With cfsem's function they differ by 9% at 1 mm pieces and 2% at
+  0.25 mm; with the segment midpoint taken correctly, by 4.0e-4 and 2.6e-5. That function places
+  the midpoint wrongly (40% low on a tangential segment, wrong sign across the -x axis): logged
+  as a bug in `docs/CFSEM.md`.
+- Commutated (sinusoidal in pi x / tau): thrust constant 0.310 N/A, ripple 0.10% peak to
+  peak, extra lift within +-0.16 mN/A, a steady pitch moment of 4.76 mN m/A (the thrust acts
+  15 mm above the centre of mass). Copper loss with block switching (only the coils under the
+  cart energized): 2.40 W/A^2, 0.129 N/W.
 
 ## Plan
 
@@ -208,5 +243,6 @@ station 1.2 m away (0.3 m/s, 0.5 m/s^2, thrust tracking a trapezoidal profile).
    through the coil, zero-power control, the gap-sensor requirement.
 3. The cart (done): four corners, modal zero-power control, an off-centre payload, a stop at a
    station.
-4. Linear-motor propulsion along the track.
+4. Linear-motor propulsion (done): a fine-pitch flat stator pushing on the lift magnets, in the
+   cart trip.
 5. Printable track and cart parts, a parts list.
