@@ -26,16 +26,16 @@ use crate::em::magnet_loops;
 pub const TAU: f64 = 0.1 / 7.0;
 pub const LX: f64 = 0.05;
 pub const LY: f64 = 0.025;
-const CORNERS: [(f64, f64); 4] = [(-LX, -LY), (LX, -LY), (LX, LY), (-LX, LY)];
+pub const CORNERS: [(f64, f64); 4] = [(-LX, -LY), (LX, -LY), (LX, LY), (-LX, LY)];
 /// Alternating polarity, as in `stray`: corners 0 and 2 north-up, 1 and 3 south-up.
-const POLARITY: [f64; 4] = [1.0, -1.0, 1.0, -1.0];
+pub const POLARITY: [f64; 4] = [1.0, -1.0, 1.0, -1.0];
 const COIL_W: f64 = 0.024; // m, across the track
 const COIL_Z: f64 = -0.00075; // m, coil plane just under the steel face
 pub const TURNS: f64 = 20.0;
 /// (ohm) one coil: 20 turns of AWG 24 (84.2 mohm/m) round 2 (TAU + 24 mm).
 pub const COIL_R: f64 = 20.0 * 2.0 * (TAU + 0.024) * 0.0842;
 const COM_BELOW_FACE: f64 = 0.015;
-const LOOPS: usize = 24;
+pub const LOOPS: usize = 24;
 
 /// One stator coil: a rectangle on the coil plane, its phase (0, 1, 2) and winding sense.
 #[derive(Clone, Copy)]
@@ -88,7 +88,7 @@ fn corners(c: &StatorCoil, z: f64) -> [(f64, f64, f64); 4] {
 /// Straight segments (start, delta, ampere-turns) of the coils and their images (z -> -z, same
 /// current: iron), for phase currents `i`.
 /// A straight current segment: start, delta (m), ampere-turns.
-type Segment = ((f64, f64, f64), (f64, f64, f64), f64);
+pub type Segment = ((f64, f64, f64), (f64, f64, f64), f64);
 
 fn segments(coils: &[StatorCoil], i: [f64; 3]) -> Vec<Segment> {
     let mut v = Vec::new();
@@ -108,12 +108,10 @@ fn segments(coils: &[StatorCoil], i: [f64; 3]) -> Vec<Segment> {
     v
 }
 
-/// Force (x, z) and moments (about x, about y) on the cart, its centre of mass COM_BELOW_FACE
-/// below the magnet faces, from the coils carrying phase currents `i`, by the Lorentz force on the
-/// magnets' loops (each split into `seg` points).
-pub fn wrench(cart_x: f64, gap: f64, i: [f64; 3]) -> [f64; 4] {
-    let coils = stator(cart_x - 0.35, cart_x + 0.35);
-    let segs = segments(&coils, i);
+/// Force (x, y, z) and moments (about x, y, z) on the cart, its centre of mass COM_BELOW_FACE below
+/// the magnet faces at (cart_x, cart_y), from straight current segments, by the Lorentz force on
+/// the magnets' loops (each split into 64 points). The cart is level and square to the track.
+pub fn wrench6(cart_x: f64, cart_y: f64, gap: f64, segs: &[Segment]) -> [f64; 6] {
     let (sx, sy, sz): (Vec<f64>, Vec<f64>, Vec<f64>) = (
         segs.iter().map(|s| s.0.0).collect(),
         segs.iter().map(|s| s.0.1).collect(),
@@ -127,8 +125,8 @@ pub fn wrench(cart_x: f64, gap: f64, i: [f64; 3]) -> [f64; 4] {
     let cur: Vec<f64> = segs.iter().map(|s| s.2).collect();
     let zero = vec![0.0; segs.len()];
     let seg = 64;
-    let com = (cart_x, 0.0, -gap - COM_BELOW_FACE);
-    let mut w = [0.0; 4];
+    let com = (cart_x, cart_y, -gap - COM_BELOW_FACE);
+    let mut w = [0.0; 6];
     for (k, &(cx, cy)) in CORNERS.iter().enumerate() {
         let (loops, il) = magnet_loops(0.006, 0.004, 1.3, LOOPS, gap);
         let il = il * POLARITY[k];
@@ -136,7 +134,7 @@ pub fn wrench(cart_x: f64, gap: f64, i: [f64; 3]) -> [f64; 4] {
             let pts: Vec<(f64, f64, f64)> = (0..seg)
                 .map(|j| {
                     let t = 2.0 * PI * (j as f64 + 0.5) / seg as f64;
-                    (cart_x + cx + r * t.cos(), cy + r * t.sin(), z)
+                    (cart_x + cx + r * t.cos(), cart_y + cy + r * t.sin(), z)
                 })
                 .collect();
             let (px, py, pz): (Vec<f64>, Vec<f64>, Vec<f64>) = (
@@ -169,13 +167,27 @@ pub fn wrench(cart_x: f64, gap: f64, i: [f64; 3]) -> [f64; 4] {
                 );
                 let rr = (pts[j].0 - com.0, pts[j].1 - com.1, pts[j].2 - com.2);
                 w[0] += f.0;
-                w[1] += f.2;
-                w[2] += rr.1 * f.2 - rr.2 * f.1; // moment about x
-                w[3] += rr.2 * f.0 - rr.0 * f.2; // moment about y
+                w[1] += f.1;
+                w[2] += f.2;
+                w[3] += rr.1 * f.2 - rr.2 * f.1;
+                w[4] += rr.2 * f.0 - rr.0 * f.2;
+                w[5] += rr.0 * f.1 - rr.1 * f.0;
             }
         }
     }
     w
+}
+
+/// The motor's segments round a cart at cart_x, for phase currents `i`.
+pub fn motor_segments(cart_x: f64, i: [f64; 3]) -> Vec<Segment> {
+    segments(&stator(cart_x - 0.35, cart_x + 0.35), i)
+}
+
+/// Force (x, z) and moments (about x, about y) on the centred cart from the motor coils carrying
+/// phase currents `i`.
+pub fn wrench(cart_x: f64, gap: f64, i: [f64; 3]) -> [f64; 4] {
+    let w = wrench6(cart_x, 0.0, gap, &motor_segments(cart_x, i));
+    [w[0], w[2], w[3], w[4]]
 }
 
 /// Flux linkage (Wb) of one phase's coils (unit current sense, with turns) from the magnets and
@@ -302,7 +314,7 @@ impl MotorTable {
 
 /// The same mutual inductance with the vector potential taken at the segment's true (Cartesian)
 /// midpoint, for comparison with cfsem's `mutual_inductance_circular_to_linear_scalar`.
-fn mutual_midpoint(rzn: (f64, f64, f64), p0: (f64, f64, f64), p1: (f64, f64, f64)) -> f64 {
+pub fn mutual_midpoint(rzn: (f64, f64, f64), p0: (f64, f64, f64), p1: (f64, f64, f64)) -> f64 {
     let m = (
         0.5 * (p0.0 + p1.0),
         0.5 * (p0.1 + p1.1),

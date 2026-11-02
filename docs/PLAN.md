@@ -16,7 +16,8 @@ carry the load, coils stabilize); `stray` sizes 12 x 4 mm discs and maps the 0.5
 `cart` carries an off-centre payload 1.2 m to a station with modal zero-power control, driven by
 a linear motor that pushes on the lift magnets (`motor`; 0.310 N/A, 0.10% ripple); `parts` gives
 the printable cart and track parts, the landing-skid trade-off and a parts list. Main 2 done in
-simulation; open items (sideways guidance first) in its README.
+simulation, sideways guidance included (a second coil layer; a 0.3 N shove at the cart's end stays
+0.64 mm off the 2 mm lips); open items in its README.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 

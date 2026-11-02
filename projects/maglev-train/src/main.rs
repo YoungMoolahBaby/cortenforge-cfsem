@@ -6,6 +6,7 @@ mod cart;
 mod check;
 mod corner;
 mod em;
+mod guide;
 mod motor;
 mod parts;
 mod stray;
@@ -22,11 +23,16 @@ fn main() {
         "corner" => corner::run(),
         "cart" => cart::run(),
         "parts" => parts::run(),
+        "guide" => {
+            guide::run();
+        }
         "motor" => {
             motor::run();
         }
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, stray, corner, cart, motor, parts");
+            eprintln!(
+                "unknown mode {other:?}; modes: check, stray, corner, cart, motor, parts, guide"
+            );
             std::process::exit(2);
         }
     }

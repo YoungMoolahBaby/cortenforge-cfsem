@@ -45,9 +45,10 @@ None yet.
   `cart`) evaluates its magnet forces inside `cb_passive` (a thread-safe `Arc<dyn Fn>` on the
   model, capturing the force table and shared coil state), maps each corner force to joint
   forces with `mj_jac_site` and the thrust and payload with `mj_jac` at arbitrary points, and
-  holds 0.6 um agreement with an independently solved equilibrium. Four joints in one body (two
-  slides, two hinges) and sites from MJCF behave as in MuJoCo. A 9 s trip at 25 us steps runs in
-  about 4 s.
+  holds 0.6 um agreement with an independently solved equilibrium. Four, later six, joints in one
+  body (up to three slides and three hinges) and sites from MJCF behave as in MuJoCo; the
+  six-joint version adds sideways and yaw control through the same callback. A 9 s trip at 25 us
+  steps runs in about 4 s (plus the cfsem table building).
 - **docs** (2026-11-02): `Data::xfrc_applied` is documented only as "Applied spatial forces in
   world frame" (types/data.rs:204); the source projects it as [torque, force] at the body's centre
   of mass (forward/acceleration.rs:128-133). MuJoCo's own layout is, as far as I recall, [force,

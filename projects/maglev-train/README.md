@@ -65,6 +65,9 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
   ripple, copper loss (about 22 s).
 - `parts`: the landing-skid window from the force table, then the printable parts (cf-design),
   checked and written to `out/parts/*.stl` (mm), and a mass budget (about 35 s).
+- `guide`: the sideways-guidance coil layer: per-phase sideways force by Lorentz vs coenergy, the
+  front and rear blocks' force and yaw per amp, side effects, and the motor's and guidance's
+  behaviour 1 mm off-centre (about 16 s).
 
 ## The model (`src/em.rs`)
 
@@ -173,7 +176,8 @@ is a sim-core slide joint (`qfrc_applied` each step), the coil current integrate
 ## The cart in sim-core (`cart`, 2026-11-02)
 
 One body (140 x 80 x 30 mm, 0.5 kg with its nominal payload; I_xx 3.04e-4, I_yy 8.54e-4 kg m^2)
-on four joints: slide along the track, heave, pitch, roll (sideways and yaw assumed guided).
+on six joints: slide along the track, sideways, heave, yaw, pitch, roll. (Before the guidance
+layer below existed it had four, with sideways and yaw assumed guided.)
 Sites mark the four magnet faces, 15 mm above the centre of mass, at +-50 / +-25 mm. Inside
 sim-core's `cb_passive` each corner's gap and gap rate come from its site and `mj_jac_site`, and
 the cfsem force table's pull F(g, I) is added to the joint forces as J^T F; the linear motor's
@@ -196,9 +200,9 @@ motor in, with the same results to within 1 um.)
 
 | Phase | Corner gaps (RR / FR / FL / RL) | Corner currents | Coil power |
 |---|---|---|---|
-| hovering, 0.7-1.0 s | 5.964 / 5.964 / 5.964 / 5.964 mm | within +-0.012 A | 195 mW |
-| trip, 2.5-8.0 s | largest excursion 69.6 um | | 241 mW mean |
-| at the station, 8.5-9.0 s | 6.047 / 5.551 / 5.034 / 5.530 mm | within +-0.007 A | 225 mW |
+| hovering, 0.7-1.0 s | 5.964 / 5.964 / 5.964 / 5.964 mm | within +-0.013 A | 205 mW |
+| trip, 2.5-8.0 s (with the 5 s shove) | largest excursion 70.5 um | | 369 mW mean |
+| at the station, 8.5-9.0 s | 6.047 / 5.551 / 5.034 / 5.530 mm | within +-0.009 A | 201 mW |
 
 - Stops at x = 1.2000 m. The motor peaks at 0.805 A of thrust current; the stator spends 1.55 J
   on the whole trip (peak 1.56 W). With the payload on, the cart settles tilted (down towards the load) in
@@ -209,7 +213,9 @@ motor in, with the same results to within 1 um.)
   the magnet faces, so tilting moves the weight's line of action (about 6% of the roll moment).
 - Setting 100 g down in one instant drives the nearest corner's current to its 10 A limit for a
   moment; a real load set down over a fraction of a second would be gentler.
-- Coil power is the sensor noise through the gains (about 50-60 mW a corner).
+- Coil power is the sensor noise through the gains (about 50 mW a corner); the trip mean also
+  carries the shove's roll transient (sideways force acts 15 mm above the centre of mass). Numbers
+  from the six-motion run; the four-motion run before guidance gave 195 / 241 / 225 mW.
 
 ## The linear motor (`motor`, 2026-11-02)
 
@@ -237,6 +243,48 @@ magnets' equivalent loops.
   peak, extra lift within +-0.16 mN/A, a steady pitch moment of 4.76 mN m/A (the thrust acts
   15 mm above the centre of mass). Copper loss with block switching (only the coils under the
   cart energized): 2.40 W/A^2, 0.129 N/W.
+
+## Sideways guidance (`guide`, `cart`, 2026-11-02)
+
+A flat steel rail pulls straight up only, so with nothing else the cart has no sideways or yaw
+restoring force at all: it would drift to a side lip and rub. Real EMS gets lateral force from
+iron magnets at the rail's edges, which cfsem can't model; here a second coil layer on the stator
+board pushes sideways on the lift magnets themselves (a small x-y planar motor, as in industrial
+maglev conveyors):
+
+- Guidance coils 14.3 x 50 mm, 20 turns (0.22 ohm), 1.25 mm under the steel, at the motor's pitch
+  and three phases. Their long sides run along the track right over the two magnet rows; the rows
+  have opposite polarity and the sides carry opposite currents, so both push the same way. Their
+  short sides cross both rows, so their pushes along the track cancel. A plain wire along the
+  track would not do: the magnets alternate front to back too, so it gives pure yaw.
+- The coils under the cart's front 80 mm and rear 80 mm form two independently driven blocks:
+  together they push sideways, opposed they turn the cart.
+- Lorentz force vs coenergy (true midpoint) for one phase: 1.2e-3 apart at 1 mm pieces, 7e-5 at
+  0.25 mm (second order).
+- Per amp of a block: sideways 0.059-0.060 N (2% ripple), yaw +-2.9 to 3.0 mN m; thrust and lift
+  about 1e-16 (zero by symmetry); copper 0.93 W/A^2 a block.
+- 1 mm off-centre: the motor makes no sideways force to speak of (<= 1e-8 N/A), so the cart is
+  neutral sideways; motor thrust falls 0.2%, guidance force 1.7%.
+
+In the cart: sideways sensors at x = +-60 mm, a PD loop on sideways position and yaw (8 Hz,
+damping 0.8, on the cart's mass and yaw inertia) giving a force and a moment, solved for the two
+block currents from the tables at the cart's position (limit 8 A). Test: start 1 mm off and
+0.5 deg turned; a 0.3 N shove at the front edge for 50 ms at 5 s (mid-trip).
+
+| Setting | After the shove (worst body corner) | Contact (lips at 2 mm) | Guidance while hovering |
+|---|---|---|---|
+| 3 A limit, 4 Hz, 5 um sensors | 2.731 mm | yes | |
+| 8 A limit, 8 Hz, 5 um sensors | 0.643 mm | no | 0.707 A rms, 465 mW |
+| 8 A limit, 8 Hz, 1 um sensors (chosen) | 0.642 mm | no | 0.141 A rms, 19 mW |
+
+- At 3 A both blocks make at most about 18 mN m of yaw, less than the shove's 21 mN m, so no
+  tuning could have held it; 8 A (the lift coils' driver class) does.
+- The start offset settles to 0.1 um and 0.0001 deg rms; the largest excursion of the run is the
+  start itself, 1.611 mm (1 mm plus 70 mm x sin 0.5 deg).
+- Sideways force acts at the magnets, 15 mm above the centre of mass, so it also rolls the cart a
+  little: with 5 um sideways sensors the hovering lift coils rose to 250 mW; with 1 um sensors they
+  are at 205 mW. Requirement: sideways sensors of about 1 um, the gap sensors' class.
+- The rest of the trip is unchanged: stop at 1.2000 m, zero-power attitude within 0.7 um.
 
 ## Parts and the parts list (`parts`, 2026-11-02)
 
@@ -293,22 +341,23 @@ printed (z up), written to `out/parts/`:
 | NdFeB disc magnet | 4 | N42, 12 mm x 4 mm, axially magnetized (Br ~1.3 T) | `stray` |
 | Control coil | 4 | 80 turns AWG 28 enamelled copper, 8 layers x 10, wound on a 13.0 mm mandrel and bonded; ~4 m and 0.86 ohm each | `corner` |
 | Gap sensor | 4 | 3-8 mm range, noise about 1 um at 2 kHz (an inductive / eddy-current displacement sensor class) | `corner` noise sweep |
+| Sideways sensor | 2 | the same class, reading the distance to the guide lips at x = +-60 mm | `cart` |
 | Coil driver | 4 | H-bridge, +-12 V, 10 A peak, current sensing for a 1 kHz current loop | `corner` |
 | Controller | 1 | 2 kHz gap loop (modal), current loops, zero-power loops | `cart` |
 | Battery | 1 | 12 V class; about 0.2-0.4 W average (coils) plus electronics, 10 A peaks | `cart` |
 | Steel flat bar | 1.4 m | low-carbon, 60 mm x 3 mm or thicker | `stray` (0.55 mm carries the flux; the image model wants it thick) |
-| Stator board | 1.4 m | three-phase flat coils, pitch 100/7 mm, 14.3 x 24 mm, 20 turns, two tracks 50 mm apart with phases reversed, 1.5 mm thick | `motor` |
+| Stator board | 1.4 m | layer 1: three-phase motor coils, pitch 100/7 mm, 14.3 x 24 mm, 20 turns, two tracks 50 mm apart with phases reversed; layer 2: three-phase guidance coils 14.3 x 50 mm, 20 turns, spanning both rows; 1.5 mm thick | `motor`, `guide` |
 | Motor driver | 1 | three-phase, block-switched sections under the cart, about 1 A per phase, position feedback for commutation | `motor`, `cart` |
+| Guidance driver | 1 | three-phase, two independently driven blocks under the cart (front, rear), 8 A peak | `guide`, `cart` |
 | Printed parts | | `cart_deck`, `cart_hull`, 14 x `rail_hanger`, 1-2 x `station_hanger` | `parts` |
 | Skid pads | 4 | low-friction (PTFE) on the 3.03 mm skids | `parts` |
 
 ### Open items
 
-- Sideways guidance. A flat rail gives no sideways restoring force, so the cart would drift to a
-  lip and rub, which breaks "no contact". Real EMS gets lateral force from the rail's edges with
-  iron magnets (not modelable in cfsem); options here are side magnets or lateral control.
-- The stator board was modelled with AWG 24-equivalent copper (0.13 ohm a coil); printed copper
-  will be thinner, so recompute the losses for a real board.
+- Sideways guidance is handled in simulation by the guidance coil layer (above); the side lips
+  stay as a backstop for shoves well beyond 0.3 N at the cart's end.
+- Both board layers were modelled with AWG 24-equivalent copper (0.13 and 0.22 ohm a coil);
+  printed copper will be thinner, so recompute the losses for a real board.
 - Power to the cart: a battery today; the wireless-charging project could feed it through the
   track.
 - Hospital materials: PETG or polycarbonate and sealed seams for cleaning; not yet chosen.
@@ -323,3 +372,5 @@ printed (z up), written to `out/parts/`:
 4. Linear-motor propulsion (done): a fine-pitch flat stator pushing on the lift magnets, in the
    cart trip.
 5. Printable parts and a parts list (done). Open items listed above.
+6. Sideways guidance (done): a guidance coil layer, front and rear blocks, sideways and yaw
+   control in the six-motion cart.

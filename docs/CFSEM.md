@@ -108,3 +108,7 @@ setup, works) and the date, with file:line in the crate source
   segments, mirrored in a steel rail) drives a linear-motor model whose Lorentz-force thrust on
   magnet loops agrees with the coenergy route to 2.6e-5 once the midpoint above is corrected
   (maglev-train `motor`).
+- works, 2026-11-02: a second, guidance coil layer for the maglev cart (coils spanning both magnet
+  rows) gives sideways force by Lorentz force that agrees with the coenergy route
+  (true-midpoint flux) to 7e-5 at 0.25 mm pieces, and side effects of 1e-16 where symmetry says
+  zero (maglev-train `guide`).
