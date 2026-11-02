@@ -18,6 +18,8 @@ Run: `cargo run --release -p wireless-charging -- <mode>`.
   sweeps, the chosen design, and its tolerances (about 8 s).
 - `effects`: the steel rail at 85 kHz (a 2D conducting magnetic half-space, checked against the
   images), induced voltage in the lift and stator coils, stray field against ICNIRP (about 23 s).
+- `pad`: the Qi A11 pad and receiver example 1: offset and tilted coupling checked, inductances
+  against the spec (ferrite as iron planes), the coupling map and the sweet spot (about 33 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -177,6 +179,68 @@ bus in its trip. Details in projects/maglev-train/README.md ("Power from the tra
   glued under the hull, and the hangers' new floor with two grooves for the track's conductors,
   5.04 mm under the former in flight.
 
+## Pad and receiver: the Qi reference coils (`pad`, 2026-11-02)
+
+Source: The Qi Wireless Power Transfer System, Power Class 0, Part 4: Reference Designs,
+v1.2.3 (2017).
+
+- Pad: Power Transmitter design A11 (section 2.2.11): a round single-layer coil of 1.15 mm Litz
+  (105 x 0.08 mm), 44 +- 1.5 mm outside, 20.5 +- 0.5 mm inside, 10 turns; ferrite at most 1.0 mm
+  under it and at least 2 mm past it; the interface surface 2 mm above it. L_P = 6.3 uH +- 10%
+  with its shielding; C_P = 0.4 uF; 110-205 kHz from a 5 V full bridge.
+- Receiver: Power Receiver example 1 (section 3.1): a rectangular single-layer coil of 0.41 mm
+  Litz (26 x 0.08 mm), 44.25 x 30.25 mm outside, 28.75 x 14.75 mm inside, 14 turns; ferrite
+  52 x 35 x 1 mm on its top face; the coil 2.5 mm above the interface. L_s = 15.3 +- 1 uH away
+  from a pad, L'_s = 20.0 +- 1 uH on one.
+
+Modelled as concentric cfsem polygons (the pad's turns as circles, the receiver's as rectangles),
+5.38 mm between the coils' centre planes. cfsem has no magnetic materials, so each ferrite sheet
+is an ideal iron plane (images; with both sheets, 12 images between two planes): an upper bound.
+Free space is the other bound.
+
+- Offset and tilted circles (21 and 15 mm, 8 mm offset, 5.3 mm apart, flat or tilted 10 deg)
+  against an independent Neumann integral on exact circles: 64-gons -1.4e-3 / -1.6e-3,
+  256-gons -8.9e-5 / -1.0e-4, 1024-gons -5.6e-6 / -6.3e-6 (second order).
+
+| Inductance | Free space | Ferrite as iron planes | Spec |
+|---|---|---|---|
+| pad coil, 10 turns in series, with its shielding | 3.74 uH | 6.99 uH | 6.3 uH +- 10% |
+| (the same 10 turns as 5 bifilar turns) | | 1.75 uH | |
+| receiver, away from a pad | 9.37 uH | 17.94 uH | 15.3 +- 1 uH |
+| receiver on the pad (both sheets) | | 29.47 uH | 20.0 +- 1 uH |
+
+- The A11 coil is 10 turns in series (5 bifilar turns would give a quarter). With an ideal
+  ferrite plane the model is 11% over the spec for the pad, 17% for the receiver alone and 47% for
+  the receiver on the pad: real sheets are finite (2-4 mm past the coils) and have finite
+  permeability, and two infinite planes compound the error. So the ferrite case bounds from above.
+- Polygon count: the pad coil's L is 3.739 / 3.742 / 3.742 uH at 64 / 128 / 256 sides.
+
+Coupling against the receiver's offset (long side along x; the map in a quadrant, 2 mm steps):
+
+| Offset x \ y | 0 | 4 mm | 8 mm | 12 mm | 16 mm | 20 mm |
+|---|---|---|---|---|---|---|
+| 0 | 0.464 / 0.743 | 0.436 / 0.707 | 0.360 / 0.606 | 0.258 / 0.467 | 0.152 / 0.316 | 0.058 / 0.177 |
+| 8 mm | 0.395 / 0.650 | 0.371 / 0.618 | 0.306 / 0.531 | 0.219 / 0.409 | 0.129 / 0.278 | 0.048 / 0.156 |
+| 16 mm | 0.254 / 0.446 | 0.237 / 0.422 | 0.191 / 0.359 | 0.132 / 0.273 | 0.071 / 0.181 | 0.018 / 0.097 |
+
+(free space / ferrite planes). The sweet spot, as the area where k stays within a fraction of its
+centred value:
+
+| | Centred k | k >= 90% | >= 75% | >= 50% | Best efficiency, centred / at 50% of k |
+|---|---|---|---|---|---|
+| free space | 0.464 | 108 mm^2 | 284 mm^2 | 708 mm^2 | 88.9% / 79.0% |
+| ferrite planes | 0.743 | 124 mm^2 | 348 mm^2 | 852 mm^2 | 97.8% / 95.6% |
+
+- The sweet spot is small: within 90% of the best coupling only inside about 6 mm of centre, and
+  half the coupling 15 mm out. That is why A11 is a "guided positioning" design: receiver example
+  1 carries a 15 mm magnet to centre itself over the pad.
+- Efficiency (both sides tuned, best load; Litz resistance 1.2 x DC assumed: 40 and 261 mohm)
+  falls slowly with k, especially with ferrite (Q 206 / 71 at 100 kHz). What offset costs first is
+  coupling: the receiver's voltage per pad amp falls, so the pad must drive more current for the
+  same power.
+- Both ferrite bounds give the same shape (the areas differ by 15-23%), so the layout can be
+  compared in free space.
+
 ## Plan
 
 1. Checks (done).
@@ -187,3 +251,8 @@ bus in its trip. Details in projects/maglev-train/README.md ("Power from the tra
    field (public level within 9 cm).
 4. On the cart (done): the pickup former and the hangers' power tray (printed, maglev-train `parts`),
    the cart's power bus and buffer in the trip (maglev-train `cart`).
+5. Pad and receiver from the Qi reference designs (done): inductances against the spec, the
+   coupling map and the sweet spot.
+6. Pad layout: widen the sweet spot (coil size and turn spacing, overlapping coil arrays as in
+   free-positioning pads), with sim-opt against a grid.
+7. A printable pad former for the chosen layout.

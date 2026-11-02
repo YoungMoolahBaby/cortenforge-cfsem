@@ -142,3 +142,8 @@ setup, works) and the date, with file:line in the crate source
   scaling cfsem's 3D image terms (checked to 5e-8 against the closed-form images, and 0.7%
   against cfsem's 3D term). A complex image weight per term, or a conducting half-space Green's
   function, would cover this directly (wireless-charging `effects`).
+- works, 2026-11-02: polygon loops through `inductance_piecewise_linear_filaments` handle offset
+  and tilted coils: two circles 8 mm apart laterally, flat or tilted 10 deg, match an independent
+  Neumann integral on exact circles to 5.6e-6 / 6.3e-6 at 1024 sides (second order). The Qi A11
+  pad coil comes out 3.74 uH in free space and 6.99 uH over an ideal iron plane, against the
+  spec's 6.3 uH +- 10% with real ferrite (wireless-charging `pad`).

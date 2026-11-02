@@ -78,6 +78,27 @@ impl Loop {
         }
     }
 
+    /// The mirror image across the plane z = p (order kept, as `image`).
+    pub fn mirror(&self, p: f64) -> Self {
+        Loop {
+            pts: self.pts.iter().map(|q| (q.0, q.1, 2.0 * p - q.2)).collect(),
+            turns: self.turns,
+        }
+    }
+
+    /// Moved by (dx, dy, dz) after turning by `tilt` about the y axis through (0, 0, 0).
+    pub fn placed(&self, tilt: f64, d: P3) -> Self {
+        let (s, c) = tilt.sin_cos();
+        Loop {
+            pts: self
+                .pts
+                .iter()
+                .map(|q| (c * q.0 + s * q.2 + d.0, q.1 + d.1, -s * q.0 + c * q.2 + d.2))
+                .collect(),
+            turns: self.turns,
+        }
+    }
+
     /// (start, delta) segments.
     pub fn segments(&self) -> (Vec<P3>, Vec<P3>) {
         let n = self.pts.len();

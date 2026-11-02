@@ -5,3 +5,4 @@ pub mod check;
 pub mod effects;
 pub mod link;
 pub mod loops;
+pub mod pad;

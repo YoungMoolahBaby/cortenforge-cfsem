@@ -27,7 +27,10 @@ of rail heating), lift coils pick up 0.3-1.1 V at 85 kHz (anti-alias filters nee
 field is under the public level 9 cm from the conductors; on the cart (maglev-train), steady running
 needs about 2.0-2.3 W of the 4.3-4.5 W supplied, lift-off and a payload settle draw a buffer down
 21.4 J (a 1.4 F supercapacitor bank, no battery), and the pickup former and the hangers' power
-tray are printable. Main 4's cart side done in simulation.
+tray are printable. Main 4's cart side done in simulation. Pad and receiver started: `pad` models
+the Qi A11 pad and receiver example 1 (inductances against the spec: +11% / +17% / +47% with
+ferrite as ideal planes, an upper bound) and maps the sweet spot (k within 90% only 6 mm from
+centre). Next: widen it with the pad layout.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
