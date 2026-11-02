@@ -4,6 +4,7 @@
 
 mod check;
 mod em;
+mod stray;
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "check".into());
@@ -13,8 +14,9 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        "stray" => stray::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check");
+            eprintln!("unknown mode {other:?}; modes: check, stray");
             std::process::exit(2);
         }
     }

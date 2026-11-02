@@ -77,3 +77,16 @@ setup, works) and the date, with file:line in the crate source
   mu0 N I / 2 pi R) to 1e-8 or better and div B = 0 to 2e-10, and trace 12 field lines x 100 turns
   (1.8M field evaluations, half of them through all 16 coils) in 0.6 s on 12 threads
   (fusion-visualizer `trace`).
+- API (scope), 2026-11-02: no magnetic materials ("quasi-steady electromagnetics including
+  filamentized approximations, Biot-Savart, and Grad-Shafranov", README.md:3). Iron-core
+  electromagnets, the usual EMS maglev magnet, and steel keepers or shields can't be modelled; a
+  flat, wide, unsaturated iron surface can, by images (maglev-train). That steered the maglev
+  design to a permanent-magnet hybrid: NdFeB (mu_r ~ 1.05) is close to exact as equivalent surface
+  currents, while an air-core coil at tabletop scale makes 0.049 N at 1 A and 5 mm (a 300 g cart
+  would burn ~170 W).
+- works, 2026-11-02: a disc magnet as equivalent current loops plus its iron image agrees with two
+  `flux_density_dipole_scalar` dipoles (point_source/dipole.rs:20) to 1.5e-5 - 1.1e-4 at 0.14 to
+  1 m; force between coaxial loops by Lorentz (B_r), by energy (flux) and by Maxwell's closed form
+  agree to 1e-8 (maglev-train `check`). The batch oriented-loop field
+  (`flux_density_circular_filament_cartesian_par`) maps a 4-magnet cart's 3D stray field
+  directly.

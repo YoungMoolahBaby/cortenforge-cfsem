@@ -50,8 +50,10 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
 
 `cargo run --release -p maglev-train -- <mode>`
 
-- `check` (default): force and inductance model against known results, 16 checks, plus design
+- `check` (default): force and inductance model against known results, 19 checks, plus design
   numbers for air-core vs hybrid. Exits 1 on any failure.
+- `stray`: magnet sizing for the demonstrator, whole-cart lift, the 0.5 mT reach for all-same
+  and alternating polarity, rail flux, and field maps in `out/stray_*.svg`.
 
 ## The model (`src/em.rs`)
 
@@ -77,10 +79,47 @@ plane (side guidance needed), no eddy currents in the steel yet, rail must stay 
   0.50 T at 2 mm (steel saturates around 1.5 T). A 72-turn AWG 24 coil around the disc (0.49 ohm)
   adds 0.30 N per amp at 5 mm.
 
+- A disc magnet plus its image as current loops vs two of cfsem's point dipoles: 1.5e-5 to 1.1e-4
+  apart at 0.14 to 1 m, inside the O((size/distance)^2) the dipole picture neglects.
+
+## Sizing and stray field (`stray`, 2026-11-02)
+
+Demonstrator: 0.5 kg (cart 300 g, payload 200 g) on four N42 discs at the corners of
+100 x 50 mm, 1.226 N a corner.
+
+| Disc (d x h) | Gap carrying a corner | Dipole moment |
+|---|---|---|
+| 10 x 3 mm | 3.96 mm | 0.244 A m^2 |
+| 12 x 4 mm | 5.96 mm | 0.468 A m^2 |
+| 15 x 5 mm | 8.94 mm | 0.914 A m^2 |
+| 20 x 5 mm | 12.64 mm | 1.625 A m^2 |
+
+Chosen: 12 x 4 mm at 5.96 mm (the smallest stock disc that floats a corner at >= 5 mm).
+
+| Polarity | Cart lift (each magnet vs every image) | vs 4 x single | 0.5 mT reach: down from a magnet / sideways from its edge / 45 deg / down from the cart centre |
+|---|---|---|---|
+| all same | 4.875 N | -0.61% | 74 / 57 / 71 / 21 mm |
+| alternating | 4.934 N | +0.58% | 59 / 46 / 57 / 0 mm |
+
+- Soft iron pulls either pole, so alternating polarity costs no lift (slightly more, here) and
+  trims the 0.5 mT reach by about 20% at this size; the cart centre falls below 0.5 mT outright.
+  At this size the near field of each magnet dominates; the far-field cancellation matters more
+  for a full-size cart with bigger magnets.
+- For the demonstrator: reachable surfaces at least ~6 cm from the magnets (alternating), i.e.
+  a cart body about that deep below the magnet plane, or a shield.
+- A steel keeper or shield under the magnets is the usual way to cut the downward field, but
+  cfsem has no magnetic materials, so it can't be checked here (finite iron); noted in
+  `docs/CFSEM.md`.
+- Rail flux: 7.9e-5 Wb of each sign enters the rail face, 4.0e-5 Wb a magnet; a 60 mm wide rail
+  below 1.2 T needs >= 0.55 mm of steel, so any practical flat bar carries it (the image model
+  wants it thick anyway).
+- Maps: `out/stray_same.svg`, `out/stray_alternating.svg` (x-z plane through a magnet row,
+  contours 5 / 1 / 0.5 mT).
+
 ## Plan
 
-1. Forces (in progress): hybrid force vs gap and current, linearized stiffness, inductance, the
-   stray-field map, sizing for the demonstrator.
+1. Forces, sizing and stray field (done for the demonstrator). The corner's stiffness, control
+   authority and coil inductance at the chosen 12 x 4 mm disc come with stage 2.
 2. One corner in CortenForge's simulator: the open-loop instability at its predicted rate, then
    gap control through the coil (voltage drive, inductance, sensor noise), then zero-power
    control.

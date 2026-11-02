@@ -165,7 +165,50 @@ pub fn run() -> bool {
     );
 
     println!(
-        "4. Design numbers (not tests): what air-core EMS costs, and a permanent-magnet hybrid"
+        "4. A disc magnet and its image, as current loops, vs two point dipoles (cfsem's dipole field)"
+    );
+    {
+        // 12 x 4 mm N42 at a 6 mm gap; far away the loops must look like dipoles of m = Br V / mu0.
+        let (rad, h, br, g) = (0.006, 0.004, 1.3, 0.006);
+        let (m, im) = crate::em::magnet_loops(rad, h, br, 80, g);
+        let src: Vec<(f64, f64)> = m.iter().copied().chain(images(&m)).collect();
+        let (rs, zs): (Vec<f64>, Vec<f64>) = src.iter().copied().unzip();
+        let moment = br / MU_0 * PI * rad * rad * h;
+        let zc = -g - 0.5 * h;
+        for (x, z) in [(0.1, -0.1), (0.3, -0.2), (0.0, -1.0)] {
+            let (mut brr, mut bzz) = ([0.0], [0.0]);
+            flux_density_circular_filament(
+                (&rs, &zs, &vec![im; src.len()]),
+                &vec![0.0; src.len()],
+                (&[x], &[z]),
+                (&mut brr, &mut bzz),
+            )
+            .expect("lengths");
+            let loops = brr[0].hypot(bzz[0]);
+            let mut d = (0.0, 0.0, 0.0);
+            for zz in [zc, -zc] {
+                let b = cfsem::physics::point_source::dipole::flux_density_dipole_scalar(
+                    (0.0, 0.0, zz),
+                    (0.0, 0.0, moment),
+                    0.0,
+                    (x, 0.0, z),
+                );
+                d = (d.0 + b.0, d.1 + b.1, d.2 + b.2);
+            }
+            let dipole = d.0.hypot(d.1).hypot(d.2);
+            // Corrections are O((size / distance)^2); size ~ the image pair's extent, 2 (g + h).
+            let tol = 3.0 * (2.0 * (g + h) / x.hypot(z)).powi(2);
+            t.cmp(
+                &format!("|B| at ({x}, {z}) m: loops vs dipoles"),
+                loops,
+                dipole,
+                tol,
+            );
+        }
+    }
+
+    println!(
+        "5. Design numbers (not tests): what air-core EMS costs, and a permanent-magnet hybrid"
     );
     let r = coil.resistance();
     let f1 = lift(&coil, 0.005, 1.0);
