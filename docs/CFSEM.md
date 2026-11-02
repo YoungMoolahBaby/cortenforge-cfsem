@@ -153,3 +153,9 @@ setup, works) and the date, with file:line in the crate source
   the coaxial mutuals of a pad coil (with Wien's ring formula, 3.7403 uH against 3.7422 uH from
   polygons). The Qi A6 coil over an ideal iron plane: 11.93 / 13.57 uH against the spec's 11.5 /
   12.5 uH +- 10% (wireless-charging `layout`).
+- works, 2026-11-02: `point_source::dipole::flux_density_dipole_scalar` matches the textbook
+  dipole to 1.2e-15, and `flux_density_circular_filament_cartesian` (loops at any position and
+  normal) models a tilted cylinder magnet: 256 loops on its side agree with Derby and Olbert's
+  closed form (Am. J. Phys. 78, 229 (2010)) to 7.1e-6 off the axis, converging at second order.
+  The dipole's error against the closed form is least at L/D 0.87, as theory says (sqrt(3)/2)
+  (magnet-tracking `check`).

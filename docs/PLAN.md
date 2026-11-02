@@ -34,7 +34,12 @@ centre); `layout` widens it on a free-space efficiency score: one 80 mm coil cov
 area, three overlapping round coils 4.6x (2x Qi A6), with sim-opt's annealers matching or beating a
 refined grid. `former` prints it: a base and lid at the A11's winding pitch (1484 mm^2, -3.6% for
 slack between turns), both printable. Main 4 done in simulation.
-magnet-tracking waits for hardware.
+magnet-tracking started simulation-first (2026-11-02): `check` validates the forward models (6 of 6):
+cfsem's dipole to 1.2e-15, the magnet as cfsem loops against Derby and Olbert's closed form to
+7.1e-6, and the dipole's error least at L/D 0.87 (theory 0.866); `solve` recovers a pose (9
+unknowns) exactly, from a cold start in 7 ms, and reaches the Cramer-Rao bound with noise; an L/D
+0.867 magnet keeps the dipole's bias under half the noise 15 mm out. Next: sensor layouts.
+Hardware later.
 The other projects are a README each until they start.
 
 ## Order
