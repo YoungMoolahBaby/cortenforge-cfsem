@@ -135,3 +135,10 @@ setup, works) and the date, with file:line in the crate source
   pickup turn over a 20 m two-wire track matches the 2D flux to 4.5e-6, and a 12-turn spiral
   pickup's L2 moves 2e-5 between 5 mm and 2.5 mm pieces; a whole design sweep runs in about 8 s
   (wireless-charging `link`).
+- API (scope), 2026-11-02: no eddy currents in conducting or magnetic plates, so a steel rail at
+  85 kHz (skin depth 20-70 um) is only bounded by images (iron +1, conductor -1), and a ferrite
+  pickup backing can't be modelled. Workaround that worked: a 2D spectral image weight
+  R(k) = (mu_r k - gamma) / (mu_r k + gamma) for the long track, its ratio to the iron case
+  scaling cfsem's 3D image terms (checked to 5e-8 against the closed-form images, and 0.7%
+  against cfsem's 3D term). A complex image weight per term, or a conducting half-space Green's
+  function, would cover this directly (wireless-charging `effects`).

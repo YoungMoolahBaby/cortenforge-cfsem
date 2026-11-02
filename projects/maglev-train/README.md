@@ -358,8 +358,8 @@ printed (z up), written to `out/parts/`:
   stay as a backstop for shoves well beyond 0.3 N at the cart's end.
 - Both board layers were modelled with AWG 24-equivalent copper (0.13 and 0.22 ohm a coil);
   printed copper will be thinner, so recompute the losses for a real board.
-- Power to the cart: a battery today; the wireless-charging project could feed it through the
-  track.
+- Power to the cart: designed in wireless-charging (a track loop and a 10-turn pickup under the
+  hull, 5 W at 6.61 A of track current); not yet in the cart simulation or the printed parts.
 - Hospital materials: PETG or polycarbonate and sealed seams for cleaning; not yet chosen.
 
 ## Plan

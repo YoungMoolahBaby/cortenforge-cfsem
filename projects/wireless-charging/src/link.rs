@@ -14,6 +14,7 @@
 use std::f64::consts::PI;
 
 use cfsem::MU_0;
+use nalgebra::Complex;
 
 use crate::loops::{Loop, mutual, self_inductance};
 
@@ -97,12 +98,12 @@ pub fn pickup(x: f64, y: f64, gap: f64, lx: f64, ly: f64, n: usize, piece: f64) 
     }
 }
 
-fn image(c: &Coil) -> Vec<Loop> {
+pub fn image(c: &Coil) -> Vec<Loop> {
     c.turns.iter().map(Loop::image).collect()
 }
 
 /// (H) mutual inductance, sources `a` (exact segments), targets `b` (3-point Gauss on each piece).
-fn coil_mutual(a: &[Loop], b: &[Loop]) -> f64 {
+pub fn coil_mutual(a: &[Loop], b: &[Loop]) -> f64 {
     a.iter()
         .map(|s| b.iter().map(|t| mutual(s, t)).sum::<f64>())
         .sum()
@@ -136,35 +137,60 @@ pub fn m_link(tr: &Coil, pk: &Coil, rail: Rail) -> f64 {
     m
 }
 
-/// The parallel-tuned pickup with its capacitor c2 and load rl fixed, at track current i1 (A rms):
-/// induced EMF j w M i1 in series with the coil (L2, R2), then C2 across R_L.
+/// The parallel-tuned pickup with its capacitor c2 and load rl fixed, at track current i1 (A rms,
+/// phase 0): induced EMF -j w M i1 in series with the coil (L2, R2), then C2 across R_L.
 #[derive(Clone, Copy)]
 pub struct Operating {
     pub p_load: f64,
     pub p_pickup: f64,
     pub p_track: f64,
+    /// (W) eddy loss in the rail: what the track supplies beyond the copper losses and the load.
+    pub p_rail: f64,
     pub v_load: f64,
     pub i_coil: f64,
+    /// (A rms, complex) the pickup coil's current, phase relative to the track current.
+    pub i2: Complex<f64>,
     pub eta: f64,
 }
 
+/// As `operate_lossy` with real (lossless) inductances.
 pub fn operate(m: f64, l2: f64, r1: f64, r2: f64, c2: f64, rl: f64, i1: f64) -> Operating {
-    // Complex arithmetic by hand: Z_p = R_L / (1 + j w C2 R_L).
-    let (a, b) = (1.0, W * c2 * rl);
-    let d = a * a + b * b;
-    let (zp_re, zp_im) = (rl * a / d, -rl * b / d);
-    let (zt_re, zt_im) = (r2 + zp_re, W * l2 + zp_im);
-    let emf = W * m * i1;
-    let i_coil = emf / zt_re.hypot(zt_im);
-    let v_load = i_coil * zp_re.hypot(zp_im);
-    let (p_load, p_pickup, p_track) = (v_load * v_load / rl, i_coil * i_coil * r2, i1 * i1 * r1);
+    let c = |v: f64| Complex::new(v, 0.0);
+    operate_lossy(c(m), c(l2), c(0.0), r1, r2, c2, rl, i1)
+}
+
+/// The link with complex inductances (a lossy rail's image: an imaginary part is a loss): mutual
+/// m, pickup l2, and the rail's change to the track's own inductance dl1.
+#[allow(clippy::too_many_arguments)]
+pub fn operate_lossy(
+    m: Complex<f64>,
+    l2: Complex<f64>,
+    dl1: Complex<f64>,
+    r1: f64,
+    r2: f64,
+    c2: f64,
+    rl: f64,
+    i1: f64,
+) -> Operating {
+    let j = Complex::new(0.0, 1.0);
+    let zp = Complex::new(rl, 0.0) / (Complex::new(1.0, 0.0) + j * W * c2 * rl);
+    let i1c = Complex::new(i1, 0.0);
+    let i2 = -j * W * m * i1c / (r2 + j * W * l2 + zp);
+    let v = i2 * zp;
+    // The track source's voltage, without its copper drop and series capacitor (reactive).
+    let v1 = j * W * dl1 * i1c + j * W * m * i2;
+    let p_in = (v1 * i1c.conj()).re + i1 * i1 * r1;
+    let (p_load, p_pickup, p_track) = (v.norm_sqr() / rl, i2.norm_sqr() * r2, i1 * i1 * r1);
+    let p_rail = p_in - p_load - p_pickup - p_track;
     Operating {
         p_load,
         p_pickup,
         p_track,
-        v_load,
-        i_coil,
-        eta: p_load / (p_load + p_pickup + p_track),
+        p_rail,
+        v_load: v.norm(),
+        i_coil: i2.norm(),
+        i2,
+        eta: p_load / p_in,
     }
 }
 

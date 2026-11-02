@@ -48,9 +48,7 @@ impl Loop {
         let mut pts = Vec::new();
         for k in 0..4 {
             let (a, b) = (c[k], c[(k + 1) % 4]);
-            let n = ((b.0 - a.0).hypot(b.1 - a.1) / piece)
-                .ceil()
-                .max(1.0) as usize;
+            let n = ((b.0 - a.0).hypot(b.1 - a.1) / piece).ceil().max(1.0) as usize;
             for s in 0..n {
                 let t = s as f64 / n as f64;
                 pts.push((a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1), z));

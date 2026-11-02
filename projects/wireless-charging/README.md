@@ -16,6 +16,8 @@ Run: `cargo run --release -p wireless-charging -- <mode>`.
 - `check`: cfsem's straight-filament inductance and field against textbook results (about 1 s).
 - `link`: the track-to-cart link: a check against the 2D two-wire flux, spacing, height and turns
   sweeps, the chosen design, and its tolerances (about 8 s).
+- `effects`: the steel rail at 85 kHz (a 2D conducting magnetic half-space, checked against the
+  images), induced voltage in the lift and stator coils, stray field against ICNIRP (about 23 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -86,14 +88,86 @@ With the capacitor, load and track current fixed:
 - The cart's own motion barely matters: along the whole trip and up to the lips, within +-2%.
 - The steel rail matters most, 38 mm above the pickup. At 85 kHz steel is both magnetic and a
   good conductor with a skin depth of tens of um, so it sits between the two bounds, and it will
-  also heat (eddy currents). Stage 3 looks at a ferrite backing on the pickup to shield it.
-  Sizing for the conductor bound means about 15% more track current (6.5 A).
+  also heat (eddy currents): see Side effects below.
+  Sizing for the conductor bound means about 15% more track current; the steel model gives 6.61 A.
+
+## Side effects (`effects`, 2026-11-02)
+
+### The steel rail at 85 kHz
+
+cfsem's images give the bounds; real steel is magnetic and conducting with a skin depth of
+20-70 um. Over a conducting magnetic half-space each spatial frequency k across the track is
+reflected with weight R(k) = (mu_r k - gamma) / (mu_r k + gamma), gamma = sqrt(k^2 + j w mu0 mu_r
+sigma) (R = 1 is ideal iron, -1 a perfect conductor). For the long track this is a 2D integral;
+its ratio to the iron case scales cfsem's 3D iron image terms, and its imaginary part is eddy loss.
+Steel: sigma 6 MS/m (assumed), mu_r 100 to 1000 (uncertain; the rail carries the magnets' bias
+flux).
+
+- Checks: the spectral integral with R = 1 matches the closed-form image to 5e-8 (track to
+  pickup, track and pickup to themselves), and R = -1 its negative to 5e-8; the 2D image times
+  each turn's length gives 0.0975 uH for the track-to-pickup term against cfsem's 3D 0.0982 uH.
+- The rail acts mostly as a conductor:
+
+| mu_r | Skin depth | Image weight (M) | M | L2 | Track for 5 W | Rail heating | Track to load |
+|---|---|---|---|---|---|---|---|
+| 100 | 70 um | -0.865 - 0.114j | -9.20% | -4.53% | 6.58 A | 0.56 W | 68.7% |
+| 300 | 41 um | -0.773 - 0.173j | -8.22% | -4.01% | 6.61 A | 0.84 W | 66.0% |
+| 1000 | 22 um | -0.612 - 0.252j | -6.51% | -3.12% | 6.61 A | 1.20 W | 63.0% |
+
+- Sized for the worst case: 6.61 A rms in the track (stage 2's 5.63 A assumed no rail). The rail
+  costs 6-15 points of efficiency and warms by 0.6-1.2 W over the track's length.
+- The 2D ratio is also applied to the pickup's own image (L2), which is less exact: the pickup is
+  130 mm long, not long against its 76 mm distance to its image.
+- Not modelled: a ferrite backing on the pickup, which real pickups use to shield and to raise
+  coupling. cfsem has no magnetic materials (only infinite-plane images, which would overstate a
+  130 x 70 mm sheet), so it needs another solver.
+
+### Induced 85 kHz voltage
+
+At 6.61 A in the track and 2.39 A rms in the pickup (-96 deg from the track current), cart at
+mid-track; the three values are the rail free / ideal iron / perfect conductor:
+
+| Coil | Voltage (rms) | Notes |
+|---|---|---|
+| each lift coil (80 turns) | 702 / 1125 / 279 mV | 10.8 / 17.3 / 4.3 mA through its 0.122 mH |
+| guidance coil under the cart (20 turns) | 964 / 1854 / 75 mV | steel model: 277-604 mV |
+| guidance coil 0.3 m from the cart | 185 / 357 / 13 mV | steel model: 53-116 mV |
+| motor coil under the cart (20 turns) | 330 / 648 / 12 mV | steel model: 72-173 mV |
+
+- The four lift coils see the same magnitude (symmetry). 4-17 mA at 85 kHz is the same size as the
+  hovering control currents (about 13 mA), far above the 1 kHz current loop but sampled at 2 kHz:
+  the current and gap measurements need anti-alias filtering ahead of the sampling, or the
+  ripple folds into the control band. The force it makes averages out at 85 kHz.
+- Stator coils lie on the rail's face, where the rail sets the normal field (iron doubles it, a
+  conductor cancels it); the steel model gives 0.22-0.63 of the free value. Under a volt per coil:
+  the drivers must tolerate it; the circulating current and its loss were not computed.
+- Gap and sideways sensors (eddy-current class) work at their own carrier frequency and need a
+  check against an 85 kHz field; not modelled.
+
+### Stray field
+
+ICNIRP 2010 reference levels (Health Physics 99(6), Tables 3 and 4), 3 kHz-10 MHz, unperturbed
+rms: 27 uT (21 A/m) for the general public, 100 uT (80 A/m) occupational. At 6.61 A, worst of
+the rail bounds, distances from the track conductors:
+
+| Where | 5 cm | 10 cm | 20 cm | 50 cm | Over 100 uT to | Over 27 uT to |
+|---|---|---|---|---|---|---|
+| below the track, cart over it | 85 uT | 25.0 uT | 5.4 uT | 0.69 uT | 4 cm | 9 cm |
+| beside the track, cart over it | 39 uT | 12.0 uT | 3.3 uT | 0.48 uT | 2 cm | 6 cm |
+| below the track, 0.4 m from the cart | 27 uT | 9.7 uT | 3.1 uT | 0.58 uT | 0 cm | 5 cm |
+| beside the track, 0.4 m from the cart | 16 uT | 6.3 uT | 2.4 uT | 0.40 uT | 1 cm | 3 cm |
+
+- The go-and-return pair cancels fast (falls as 1/r^2): over the public level only within 9 cm of
+  the conductors, so a tray enclosure 10 cm deep keeps the public level outside it, unaveraged.
+- Medical implants (pacemakers and similar) have their own limits, not checked here; a hospital
+  would need that before installing.
 
 ## Plan
 
 1. Checks (done).
 2. Track loop and pickup for the cart (done): the 85 kHz link, coupling over the trip and the
    cart's motion, the steel rail bounded by images.
-3. Side effects: the steel rail (shielding with a ferrite backing), 85 kHz voltage induced in the
-   lift coils (gap-control noise) and the motor stator, stray field against exposure limits.
+3. Side effects (done): the steel rail (a conductor, mostly; 6.61 A for 5 W, 0.6-1.2 W of rail
+   heating), induced voltage in the lift and stator coils (anti-alias filtering needed), stray
+   field (public level within 9 cm).
 4. Printable pickup former and track tray; the pickup on the cart in the maglev simulation.

@@ -22,7 +22,9 @@ wireless-charging started (2026-11-02), to power the maglev cart from the track:
 cfsem's straight-filament inductance and field (9 of 9); cfsem's linear self-inductance counts the
 wire's internal inductance twice (+5% on a single ring, corrected); `link` sizes the track loop and a 10-turn
 pickup: 5 W from 5.6 A of track current at 85 kHz, 78% coil to coil, within +-2% over the trip
-and the cart's motion; the steel rail is the open question (+-11% coupling).
+and the cart's motion; `effects`: the steel rail acts mostly as a conductor (6.61 A for 5 W, 0.6-1.2 W
+of rail heating), lift coils pick up 0.3-1.1 V at 85 kHz (anti-alias filters needed), and the
+field is under the public level 9 cm from the conductors.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
