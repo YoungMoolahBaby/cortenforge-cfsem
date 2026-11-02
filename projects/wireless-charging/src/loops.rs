@@ -37,6 +37,28 @@ impl Loop {
         Loop { pts, turns }
     }
 
+    /// A rectangle like `rect`, each side split into pieces no longer than `piece`.
+    pub fn rect_by(cx: f64, cy: f64, z: f64, lx: f64, ly: f64, piece: f64, turns: f64) -> Self {
+        let c = [
+            (cx - lx / 2.0, cy - ly / 2.0),
+            (cx + lx / 2.0, cy - ly / 2.0),
+            (cx + lx / 2.0, cy + ly / 2.0),
+            (cx - lx / 2.0, cy + ly / 2.0),
+        ];
+        let mut pts = Vec::new();
+        for k in 0..4 {
+            let (a, b) = (c[k], c[(k + 1) % 4]);
+            let n = ((b.0 - a.0).hypot(b.1 - a.1) / piece)
+                .ceil()
+                .max(1.0) as usize;
+            for s in 0..n {
+                let t = s as f64 / n as f64;
+                pts.push((a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1), z));
+            }
+        }
+        Loop { pts, turns }
+    }
+
     /// A circle of radius r centred at c, axis along +z, as an m-gon.
     pub fn circle(c: P3, r: f64, m: usize, turns: f64) -> Self {
         let pts = (0..m)

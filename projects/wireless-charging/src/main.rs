@@ -3,6 +3,7 @@
 //! `check` tests cfsem's straight-filament inductance and field against textbook results.
 
 mod check;
+mod link;
 mod loops;
 
 fn main() {
@@ -13,8 +14,9 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        "link" => link::run(),
         m => {
-            eprintln!("unknown mode {m}; modes: check");
+            eprintln!("unknown mode {m}; modes: check, link");
             std::process::exit(2);
         }
     }

@@ -131,3 +131,7 @@ setup, works) and the date, with file:line in the crate source
   `flux_circular_filament` at second order (1024-gons: 5.5e-6); `flux_density_linear_filament`
   matches the Biot-Savart finite-wire closed form to 1e-15; loop images satisfy the
   conductor and iron boundary conditions to 1e-16.
+- works, 2026-11-02: `inductance_piecewise_linear_filaments` sizes an inductive power link. A
+  pickup turn over a 20 m two-wire track matches the 2D flux to 4.5e-6, and a 12-turn spiral
+  pickup's L2 moves 2e-5 between 5 mm and 2.5 mm pieces; a whole design sweep runs in about 8 s
+  (wireless-charging `link`).

@@ -1,11 +1,11 @@
 //! `cart`: the whole demonstrator cart in sim-core, four hybrid corners under the rail.
 //!
-//! One body on four joints (slide along the track, heave, pitch, roll; sideways and yaw are
-//! guided). Sites mark the four magnet faces. Inside `cb_passive` each corner's gap and gap rate
-//! come from its site and Jacobian, and the cfsem force table's pull F(g, I) is added to the joint
-//! forces as J^T F; the propulsion force (a stand-in for the linear motor, applied at magnet
-//! height) and an off-centre payload go in the same way. Coil currents and the controller run
-//! each step outside, sharing state with the callback.
+//! One body on six joints (slide along the track, sideways, heave, yaw, pitch, roll; sideways and
+//! yaw held by the guidance coils of `guide`). Sites mark the four magnet faces. Inside
+//! `cb_passive` each corner's gap and gap rate come from its site and Jacobian, and the cfsem
+//! force table's pull F(g, I) is added to the joint forces as J^T F; the linear motor's and the
+//! guidance coils' wrenches, a sideways shove and an off-centre payload go in the same way. Coil
+//! currents and the controllers run each step outside, sharing state with the callback.
 //!
 //! Control is modal: heave, pitch and roll each get a gap PD plus a zero-power loop; the fourth
 //! corner pattern (warp) cannot move a rigid body, so its current is held at zero.

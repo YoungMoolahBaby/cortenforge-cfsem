@@ -20,7 +20,9 @@ simulation, sideways guidance included (a second coil layer; a 0.3 N shove at th
 0.64 mm off the 2 mm lips); open items in its README.
 wireless-charging started (2026-11-02), to power the maglev cart from the track: `check` validates
 cfsem's straight-filament inductance and field (9 of 9); cfsem's linear self-inductance counts the
-wire's internal inductance twice (+5% on a single ring, corrected). Next: track loop and pickup.
+wire's internal inductance twice (+5% on a single ring, corrected); `link` sizes the track loop and a 10-turn
+pickup: 5 W from 5.6 A of track current at 85 kHz, 78% coil to coil, within +-2% over the trip
+and the cart's motion; the steel rail is the open question (+-11% coupling).
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
