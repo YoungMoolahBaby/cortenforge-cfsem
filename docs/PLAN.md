@@ -12,7 +12,8 @@ export as checked CortenForge meshes. Warm-up 2 done; next in the plan: magnet-t
 maglev-train started (2026-11-02), as an ultra-clean hybrid-EMS hospital delivery cart: `check`
 validates the force and inductance model (19 of 19) and shows why hybrid (permanent magnets
 carry the load, coils stabilize); `stray` sizes 12 x 4 mm discs and maps the 0.5 mT line;
-`corner` levitates one corner in sim-core with zero-power control (80 mW with a 1 um gap sensor).
+`corner` levitates one corner in sim-core with zero-power control (80 mW with a 1 um gap sensor);
+`cart` carries an off-centre payload 1.2 m to a station with modal zero-power control.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 

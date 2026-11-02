@@ -57,6 +57,8 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
 - `corner`: one corner in CortenForge's simulator: open-loop instability vs prediction, gap
   control through the coil, zero-power control, a sensor-noise sweep; plots in
   `out/corner_*.svg` (about 4 s).
+- `cart`: the whole cart: lift-off, an off-centre payload, a 1.2 m trip to a station, against
+  the zero-power attitude predicted from the force table; plot in `out/cart.svg` (about 4 s).
 
 ## The model (`src/em.rs`)
 
@@ -162,11 +164,49 @@ is a sim-core slide joint (`qfrc_applied` each step), the coil current integrate
   Requirement: a gap sensor with about 1 um noise at 2 kHz. For a given winding volume the
   wire choice does not help (b^2/R is fixed); a bigger coil or a model-based estimator would.
 
+## The cart in sim-core (`cart`, 2026-11-02)
+
+One body (140 x 80 x 30 mm, 0.5 kg with its nominal payload; I_xx 3.04e-4, I_yy 8.54e-4 kg m^2)
+on four joints: slide along the track, heave, pitch, roll (sideways and yaw assumed guided).
+Sites mark the four magnet faces, 15 mm above the centre of mass, at +-50 / +-25 mm. Inside
+sim-core's `cb_passive` each corner's gap and gap rate come from its site and `mj_jac_site`, and
+the cfsem force table's pull F(g, I) is added to the joint forces as J^T F; the propulsion force (a
+stand-in for the linear motor, at magnet height) and the payload's weight go in the same way at
+their points (`mj_jac`). Coil currents and the controller run each step outside, sharing state
+with the callback.
+
+Control is modal. A rigid cart has three vertical motions and four magnets, so four independent
+zero-power loops would fight in the fourth pattern (warp), which the body cannot follow. Heave,
+pitch and roll each get a gap PD (wn = 3 p of that mode, from its equivalent per-corner mass:
+M/4, I_yy/(4 lx^2), I_xx/(4 ly^2); open-loop poles 62.2, 75.2, 63.0 /s) and a zero-power loop;
+corner currents are built from those three, so warp current is zero by construction. Same coils,
+sensor (1 um, 2 kHz, 100 Hz derivative filter), current loops and limits as `corner`.
+
+Timeline: lift-off ramp to 0.3 s; +100 g set down at (+30, +15) mm at 1 s; depart at 2.5 s for a
+station 1.2 m away (0.3 m/s, 0.5 m/s^2, thrust tracking a trapezoidal profile).
+
+| Phase | Corner gaps (RR / FR / FL / RL) | Corner currents | Coil power |
+|---|---|---|---|
+| hovering, 0.7-1.0 s | 5.964 / 5.964 / 5.964 / 5.964 mm | within +-0.012 A | 195 mW |
+| trip, 2.5-8.0 s | largest excursion 69 um | | 240 mW mean |
+| at the station, 8.5-9.0 s | 6.047 / 5.551 / 5.034 / 5.530 mm | within +-0.007 A | 225 mW |
+
+- Stops at x = 1.2000 m. With the payload on, the cart settles tilted (down towards the load) in
+  the attitude where the magnets alone carry everything: the currents return to zero.
+- That attitude, solved independently from the force table (total force and two moments, three
+  mode gaps), matches the simulation to 0.5 um without the payload and 0.6 um with it. The first
+  version of that solver missed by 17 um: it left out that the centre of mass sits 15 mm below
+  the magnet faces, so tilting moves the weight's line of action (about 6% of the roll moment).
+- Setting 100 g down in one instant drives the nearest corner's current to its 10 A limit for a
+  moment; a real load set down over a fraction of a second would be gentler.
+- Coil power is the sensor noise through the gains (about 50-60 mW a corner).
+
 ## Plan
 
 1. Forces, sizing and stray field (done for the demonstrator).
 2. One corner in CortenForge's simulator (done): instability at the predicted rate, gap control
    through the coil, zero-power control, the gap-sensor requirement.
-3. The cart: four corners, pitch and roll, payload changes, a stop at a station.
+3. The cart (done): four corners, modal zero-power control, an off-centre payload, a stop at a
+   station.
 4. Linear-motor propulsion along the track.
 5. Printable track and cart parts, a parts list.

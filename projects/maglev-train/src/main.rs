@@ -2,6 +2,7 @@
 //!
 //! `check` tests the force and inductance model (cfsem coils, iron rail by images).
 
+mod cart;
 mod check;
 mod corner;
 mod em;
@@ -17,8 +18,9 @@ fn main() {
         }
         "stray" => stray::run(),
         "corner" => corner::run(),
+        "cart" => cart::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, stray, corner");
+            eprintln!("unknown mode {other:?}; modes: check, stray, corner, cart");
             std::process::exit(2);
         }
     }

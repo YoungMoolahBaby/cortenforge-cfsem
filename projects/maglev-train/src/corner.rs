@@ -27,19 +27,29 @@ const I_MAX: f64 = 10.0; // A, current command limit
 const RAMP: f64 = 0.3; // s, lift-off setpoint ramp
 
 /// Tabulated corner magnetics on a uniform gap grid.
-struct Table {
-    g0: f64,
-    dg: f64,
-    a: Vec<f64>,
-    b: Vec<f64>,
-    c: Vec<f64>,
-    l: Vec<f64>,
-    psi: Vec<f64>,
-    r: f64,
+pub(crate) struct Table {
+    pub(crate) g0: f64,
+    pub(crate) dg: f64,
+    pub(crate) a: Vec<f64>,
+    pub(crate) b: Vec<f64>,
+    pub(crate) c: Vec<f64>,
+    pub(crate) l: Vec<f64>,
+    pub(crate) psi: Vec<f64>,
+    pub(crate) r: f64,
+}
+
+/// The corner's control coil: 80 turns of AWG 28 wound round the 12 x 4 mm disc.
+pub(crate) fn corner_coil() -> Coil {
+    Coil {
+        r_in: 0.0065,
+        layers: 8,
+        per_layer: 10,
+        wire: Wire::awg(28),
+    }
 }
 
 impl Table {
-    fn build(coil: &Coil) -> Self {
+    pub(crate) fn build(coil: &Coil) -> Self {
         let (g0, g1, n) = (0.002, 0.012, 201);
         let dg = (g1 - g0) / (n - 1) as f64;
         let l0 = self_inductance(coil);
@@ -68,7 +78,7 @@ impl Table {
         }
     }
     /// Catmull-Rom value and derivative of a column at gap g.
-    fn eval(&self, col: &[f64], g: f64) -> (f64, f64) {
+    pub(crate) fn eval(&self, col: &[f64], g: f64) -> (f64, f64) {
         let x = ((g - self.g0) / self.dg).clamp(1.0, (col.len() - 3) as f64);
         let i = x.floor() as usize;
         let t = x - i as f64;
@@ -85,11 +95,11 @@ impl Table {
             / self.dg;
         (v, d)
     }
-    fn force(&self, g: f64, i: f64) -> f64 {
+    pub(crate) fn force(&self, g: f64, i: f64) -> f64 {
         self.eval(&self.a, g).0 + self.eval(&self.b, g).0 * i + self.eval(&self.c, g).0 * i * i
     }
     /// Gap where the magnet alone carries the corner.
-    fn zero_power_gap(&self, weight: f64) -> f64 {
+    pub(crate) fn zero_power_gap(&self, weight: f64) -> f64 {
         let (mut lo, mut hi) = (
             self.g0 + 2.0 * self.dg,
             self.g0 + (self.a.len() - 3) as f64 * self.dg,

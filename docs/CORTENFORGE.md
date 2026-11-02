@@ -41,6 +41,19 @@ None yet.
   callbacks that evaluate forces inside the step, `Model::cb_passive` and user actuator dynamics
   `cb_act_dyn` (types/model.rs:1015-1026), which could also carry a coil current as actuator
   state, are only found by reading `Model`'s fields; no guide or example mentions them.
+- **works** (2026-11-02): those callbacks do the job well. The four-corner cart (maglev-train
+  `cart`) evaluates its magnet forces inside `cb_passive` (a thread-safe `Arc<dyn Fn>` on the
+  model, capturing the force table and shared coil state), maps each corner force to joint
+  forces with `mj_jac_site` and the thrust and payload with `mj_jac` at arbitrary points, and
+  holds 0.6 um agreement with an independently solved equilibrium. Four joints in one body (two
+  slides, two hinges) and sites from MJCF behave as in MuJoCo. A 9 s trip at 25 us steps runs in
+  about 4 s.
+- **docs** (2026-11-02): `Data::xfrc_applied` is documented only as "Applied spatial forces in
+  world frame" (types/data.rs:204); the source projects it as [torque, force] at the body's centre
+  of mass (forward/acceleration.rs:128-133). MuJoCo's own layout is, as far as I recall, [force,
+  torque], so code ported from MuJoCo would apply forces as torques silently. Not run here (the
+  cart applies its point forces through `cb_passive` and `mj_jac` instead); one doc line would
+  settle it.
 
 ### `sim-opt`
 
