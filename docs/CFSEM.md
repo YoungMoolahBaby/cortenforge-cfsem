@@ -70,3 +70,10 @@ setup, works) and the date, with file:line in the crate source
   the Green's sum for the same current to 3.4e-7 at 12,205 vacuum nodes. The vertical field the
   solver needs to centre a circular plasma matches Shafranov's formula to -2.71 / -1.38 / -0.22%
   at a/R0 = 0.3 / 0.2 / 0.1, shrinking with a/R0 as the large-aspect-ratio formula should.
+- works, 2026-11-02: `flux_density_circular_filament_cartesian_scalar` (a loop at any position and
+  orientation) agrees with an m-segment polygon of `flux_density_linear_filament_scalar` at
+  1.7e-3 / 1.0e-4 / 6.6e-6 for m = 64 / 256 / 1024, the expected 1/m^2: two independent kernels,
+  one answer. Sixteen of them as TF coils satisfy Ampere's law (toroidal average of B_phi =
+  mu0 N I / 2 pi R) to 1e-8 or better and div B = 0 to 2e-10, and trace 12 field lines x 100 turns
+  (1.8M field evaluations, half of them through all 16 coils) in 0.6 s on 12 threads
+  (fusion-visualizer `trace`).

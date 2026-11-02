@@ -9,6 +9,8 @@ mod gs;
 mod plot;
 mod shafranov;
 mod shape;
+mod tf;
+mod trace;
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "check".into());
@@ -20,8 +22,9 @@ fn main() {
         }
         "shafranov" => shafranov::run(),
         "shape" => shape::run(),
+        "trace" => trace::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, shafranov, shape");
+            eprintln!("unknown mode {other:?}; modes: check, shafranov, shape, trace");
             std::process::exit(2);
         }
     }

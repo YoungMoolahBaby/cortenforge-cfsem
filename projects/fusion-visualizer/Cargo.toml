@@ -10,3 +10,4 @@ cortenforge.workspace = true
 nalgebra.workspace = true
 # Sparse LU for the Grad-Shafranov solve (cfsem ships the operator, not a solver).
 faer = "0.24"
+rayon = "1.12"

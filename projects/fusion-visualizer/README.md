@@ -18,6 +18,8 @@ Trace field lines around a small tokamak or stellarator and show the plasma equi
   a/R0 = 0.3, 0.2, 0.1 (about 5 s). `FV_DEBUG=1` prints every iteration.
 - `shape`: a small tokamak's plasma shape across six PF coil settings; writes
   `out/shape_*.svg` (git-ignored).
+- `trace`: 16 TF coils checked against Ampere, then field lines of the shaped equilibrium traced
+  through them (about 5 s); writes `out/poincare.svg`.
 
 ## Grad-Shafranov plumbing (`src/gs.rs`)
 
@@ -98,11 +100,41 @@ triangularity pair (R 0.3, Z +-0.55), central solenoid (off).
   just outside the vessel), hence the pointed top and bottom and the jump in kappa.
 - 40-64 iterations a case, warm-started from the previous one.
 
+## Field lines (2026-11-02)
+
+TF: 16 circular coils (centre R 1.05 m, radius 0.75 m), 312.5 kA each for 1 T at R0, through
+cfsem's oriented circular filament. Poloidal field from the shaped equilibrium (elongation 80 kA,
+triangularity +60 kA: kappa 1.324, delta +0.159). Lines start on the outboard midplane at
+psiN 0.1-0.95 and run 100 toroidal turns, RK4 in the toroidal angle at 384 steps a turn.
+
+- One TF coil as cfsem's oriented circular filament vs a polygon of its linear filaments:
+  1.7e-3 / 1.0e-4 / 6.6e-6 apart at 64 / 256 / 1024 segments (1/m^2).
+- Ampere: the toroidal average of B_phi equals mu0 N I / (2 pi R) to 1.2e-10 / 7.4e-9 / 5.0e-10 at
+  R 0.6 / 1.0 / 1.4 m. Ripple (on-coil minus between-coil over their sum): 2.6e-5, 2.0e-4, 2.6e-2.
+  div B = 2e-10.
+- Field lines stay on flux surfaces: with the axisymmetric part of the TF field, psiN drifts at
+  most 9.1e-6 over 100 turns; with the 16 coils the ripple moves it by up to 5.5e-3 at the edge.
+- q from whole poloidal transits matches q = F0 * integral dl / (R |grad Psi|) on the surface:
+
+  | psiN | q surface | q traced (axisymmetric TF) | q traced (16 coils) | q surface at that line's mean psiN |
+  |---|---|---|---|---|
+  | 0.10 | 1.1235 | 1.1231 | 1.1233 | 1.1238 (0.1002) |
+  | 0.50 | 2.0154 | 2.0158 | 2.0207 | 2.0204 (0.5014) |
+  | 0.85 | 4.5955 | 4.5960 | 4.6559 | 4.6557 (0.8541) |
+  | 0.95 | 6.5916 | 6.5922 | 6.7425 | 6.7430 (0.9555) |
+
+  Axisymmetric: within 0.04%. With ripple q is up to 2.3% higher, but it matches the surface q at
+  the line's mean psiN to 0.05%: a line started in a coil plane lives on a slightly outer surface
+  on average; ripple does not change the pitch. (Measuring q over a fixed number of toroidal
+  turns, part-way through a poloidal transit, had given 0.8% at the edge; whole transits fix it.)
+- 12 lines x 100 turns in 0.6 s. The Poincare section shows nested surfaces out to the LCFS;
+  the outer lines bunch into groups, q being close to a ratio of small integers there.
+- Not included: the plasma's own change to the toroidal field (FF'), so q uses the vacuum F0.
+
 ## Plan
 
 1. `check` (done).
 2. Free-boundary equilibrium (done): radial feedback, symmetric shapes, shape follows the PF
    currents.
-3. 3D: TF coils as cfsem linear filaments, field-line tracing in the total field, Poincare
-   sections showing nested surfaces, q from tracing vs the equilibrium.
+3. Field lines (done): TF coils, tracing, Poincare section, q against the equilibrium.
 4. Output: plots, and CortenForge meshes of the coils and flux surfaces.

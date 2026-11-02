@@ -6,7 +6,9 @@ grid; `design` picks the least-power pair meeting a robust spec and builds its p
 former (with lead slots). Next: print, wind and measure (see its README).
 fusion-visualizer started (2026-11-02): `check` validates cfsem's Grad-Shafranov operator and flux
 conventions (16 of 16); a free-boundary solver matches Shafranov's vertical field (-0.22% at
-a/R0 0.1) and its plasma shape follows the PF currents. Next: TF coils and field-line tracing.
+a/R0 0.1) and its plasma shape follows the PF currents; field lines traced through 16 TF coils
+lie on nested flux surfaces with q matching the equilibrium. Next: CortenForge meshes of the
+coils and flux surfaces.
 The other projects are a README each until they start.
 
 ## Order
