@@ -34,13 +34,15 @@ centre); `layout` widens it on a free-space efficiency score: one 80 mm coil cov
 area, three overlapping round coils 4.6x (2x Qi A6), with sim-opt's annealers matching or beating a
 refined grid. `former` prints it: a base and lid at the A11's winding pitch (1484 mm^2, -3.6% for
 slack between turns), both printable. Main 4 done in simulation.
-magnet-tracking started simulation-first (2026-11-02): `check` validates the forward models (6 of 6):
+magnet-tracking started simulation-first (2026-11-02): `check` validates the forward models (5 of 5):
 cfsem's dipole to 1.2e-15, the magnet as cfsem loops against Derby and Olbert's closed form to
 7.1e-6, and the dipole's error least at L/D 0.87 (theory 0.866); `solve` recovers a pose (9
 unknowns) exactly, from a cold start in 7 ms, and reaches the Cramer-Rao bound with noise; an L/D
 0.867 magnet keeps the dipole's bias under half the noise 15 mm out; `layout` picks a 4 x 4
 MMC5983MA board (under 1 mm to 120 mm) and shows calibration (gains to ~0.1%, positions under
-0.1 mm), not sensor noise, limits a real board. Next: calibration in simulation.
+0.1 mm), not sensor noise, limits a real board; `calib` recovers a board's 240 unknowns from a magnet
+in a jig, and a joint solve (bundle adjustment) makes even a printed jig (0.2 mm, 0.5 deg) good to
+32-70 um. Next: tracking along a path.
 Hardware later.
 The other projects are a README each until they start.
 

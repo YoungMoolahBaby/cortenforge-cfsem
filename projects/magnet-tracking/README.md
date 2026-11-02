@@ -16,10 +16,12 @@ Run: `cargo run --release -p magnet-tracking -- <mode>`.
   against the Cramer-Rao bound, bias by magnet shape (about a second).
 - `layout`: real magnetometers (MMC5983MA, LIS3MDL) with saturation; the weighted solver against
   its bound, 32 layouts over the workspace, and calibration errors (about 3 s).
+- `calib`: calibrating a board in simulation: exact recovery, then 40 random boards calibrated
+  with jigs of several tolerances, per sensor and by a joint solve, and tracked (about 30 s).
 
 ## Checks (`check`, 2026-11-02)
 
-6 of 6 pass. The test magnet: 6 mm across, 6 mm long, Br 1.3 T, tilted.
+5 of 5 pass. The test magnet: 6 mm across, 6 mm long, Br 1.3 T, tilted.
 
 | Check | Result |
 |---|---|
@@ -156,6 +158,60 @@ boards; position bias, median / 95th percentile (median over the noise's bound):
 - Far out, gain errors bite through the Earth's field: 0.1% of its 45 uT is a noise-sized false
   signal against the magnet's few uT, so the bias grows again at 120 mm.
 
+## Calibration (`calib`, 2026-11-02)
+
+Each sensor reads g (B + E) + o: a 3 x 3 gain matrix g (gain and small axis misalignment), an
+offset o, the background E, at a position d off its nominal one; 15 unknowns a sensor (g, c =
+g E + o, d), 240 for the board. A jig sets the calibration magnet (the same 6 x 5.2 mm one) at
+196 poses: a 7 x 7 grid at 15 mm over the board, 25 and 45 mm up, axis up or along x. Readings
+come from the exact cylinder (Derby and Olbert), so the magnet's shape error is in them; the
+fit models it as a dipole. Readings are averaged 16x (noise / 4); saturated ones are skipped.
+
+- Two degeneracies shape the fit. A gain common to every sensor looks exactly like a different
+  magnet moment, which the tracker fits anyway, so the calibration magnet's moment is held at its
+  nominal value. The background at calibration folds into c; the tracker's fitted background
+  takes any change after.
+- Check: no noise, a perfect jig, dipole readings, a board with 1% gains, 1 deg misalignment,
+  0.5 uT offsets and 0.5 mm position errors: every sensor's unknowns recovered to 2.2e-16 (gain),
+  1.4e-20 T (offset), 4.9e-18 m (position).
+
+40 random boards with those errors (gains 1%, misalignment 1 deg, offsets 0.5 uT, positions
+0.5 mm: assumed for a hand-built board), calibrated, then tracking 9 test poses without noise;
+position bias, median / 95th percentile, and the noise floor's bound:
+
+| Calibration | 20 mm up | 60 mm | 120 mm |
+|---|---|---|---|
+| none | 825 um / 1.56 mm | 1.47 / 2.51 mm | 13.0 / 24.3 mm |
+| perfect jig | 1.4 / 1.8 um | 1.2 / 3.1 um | 27.7 / 51.7 um |
+| jig off 0.05 mm (position only) | 33.8 / 66.2 um | 99.1 / 168 um | 0.92 / 1.79 mm |
+| jig off 0.2 deg (angle only) | 23.0 / 44.0 um | 65.7 / 122 um | 1.01 / 1.91 mm |
+| jig off 0.05 mm and 0.2 deg | 43.5 / 77.1 um | 127 / 201 um | 1.29 / 2.89 mm |
+| jig off 0.2 mm and 0.5 deg | 161 / 267 um | 461 / 762 um | 4.53 / 8.67 mm |
+| same jig, joint solve | 31.7 / 63.6 um | 32.3 / 61.8 um | 69.6 / 108 um |
+| jig off 0.5 mm and 1 deg, joint solve | 73.9 / 144 um | 83.8 / 153 um | 157 / 229 um |
+| (noise floor) | 2.1 um | 34.2 um | 790 um |
+
+- Calibration against a perfect jig takes an uncalibrated board's 0.8-13 mm down to under the
+  noise floor everywhere: the 240 unknowns are all recoverable from 196 poses.
+- Taking the jig's poses as exact, its errors go straight into the board: 0.05 mm of position or
+  0.2 deg of angle error each cost tens of um near the board and about 1 mm at 120 mm (they add
+  in quadrature). A printed jig (0.2 mm, 0.5 deg) would leave 0.16-4.5 mm.
+- The fix: solve every pose and every sensor at once (bundle adjustment: 196 x 5 + 16 x 15 =
+  1,220 unknowns), with the jig's nominal poses as measurements of known tolerance rather than
+  exact, and the sensors' nominal positions with 1 mm. The readings alone leave the whole
+  arrangement free to move, turn and scale (a scaling's c^-3 in the fields is a common gain); the
+  jig's priors fix that with their errors averaged over 196 poses. With the 0.2 mm, 0.5 deg jig
+  the bias falls 5-65x, to 32 um at 20 and 60 mm and 70 um at 120 mm, under the noise floor from
+  60 mm out; even a 0.5 mm, 1 deg jig gives 74-157 um.
+- What is left is mostly where the whole board sits in the jig's frame: its mean error over 196
+  poses, about 0.2 mm / sqrt(196) = 14 um an axis (25 um in 3D) for the 0.2 mm jig, 36 um an axis
+  for the 0.5 mm one. Positions relative to the board, and any motion, don't see it.
+- Getting there took three tries. Alternating (sensors given poses, then poses given sensors,
+  re-anchored to the jig each round) with a rigid anchor gave 58 / 173 / 1400 um; adding scale to
+  the anchor, 48 / 90 / 665 um at 20 rounds and 38 / 49 / 246 um at 60, still falling: slow
+  convergence along the coupled directions. The joint solve converges in a few dozen steps
+  (the whole run about 30 s).
+
 ## Plan
 
 1. Forward models (done).
@@ -163,6 +219,6 @@ boards; position bias, median / 95th percentile (median over the noise's bound):
    Cramer-Rao bound reached, model bias by magnet shape.
 3. Sensor layouts (done): two real magnetometers, saturation, 32 layouts; a 4 x 4 MMC5983MA
    board at 30 mm stays under 1 mm to 120 mm; calibration, not noise, limits a real board.
-4. Calibration in simulation: recover each sensor's gains and position from a known source
-   (a magnet at known poses, or a coil), and how close that gets to the noise floor.
+4. Calibration (done): 15 unknowns a sensor from a magnet in a jig; with a perfect jig, under the
+   noise floor; a joint solve (bundle adjustment) makes a printed jig good to 32-70 um.
 5. Tracking a moving magnet along a path (warm starts, speed).
