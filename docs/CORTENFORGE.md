@@ -27,6 +27,21 @@ None yet.
 - **works** (2026-11-02): builds alongside cfsem 14 in one workspace, no
   dependency conflicts.
 
+### `sim-core`
+
+- **works** (2026-11-02): a one-body maglev corner (maglev-train `corner`): an MJCF string with
+  a slide joint and a box geom of given `mass`, `load_model`, `make_data`, `qfrc_applied` set each
+  step from a cfsem force table, `data.step`. The open-loop magnet instability grows at 62.02 /
+  62.04 1/s against the predicted sqrt(k/m) = 62.18 (within 0.25%, the same at 50 and 25 us
+  steps), and the coil-shorted case matches the root of the electromechanical cubic equally well.
+  The full mode (open loop, three 4 s closed-loop runs at 25 us, a six-run noise sweep) takes
+  4 s.
+- **docs** (2026-11-02): for a state-dependent external force the natural first move,
+  `qfrc_applied`, is held through the step (a zero-order hold; fine here at 25 us). The
+  callbacks that evaluate forces inside the step, `Model::cb_passive` and user actuator dynamics
+  `cb_act_dyn` (types/model.rs:1015-1026), which could also carry a coil current as actuator
+  state, are only found by reading `Model`'s fields; no guide or example mentions them.
+
 ### `sim-opt`
 
 - **API** (2026-11-02): the optimizers (`Sa`, `RicherSa`, `Pt`) only run through

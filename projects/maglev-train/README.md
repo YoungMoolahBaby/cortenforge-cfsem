@@ -54,6 +54,9 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
   numbers for air-core vs hybrid. Exits 1 on any failure.
 - `stray`: magnet sizing for the demonstrator, whole-cart lift, the 0.5 mT reach for all-same
   and alternating polarity, rail flux, and field maps in `out/stray_*.svg`.
+- `corner`: one corner in CortenForge's simulator: open-loop instability vs prediction, gap
+  control through the coil, zero-power control, a sensor-noise sweep; plots in
+  `out/corner_*.svg` (about 4 s).
 
 ## The model (`src/em.rs`)
 
@@ -116,13 +119,54 @@ Chosen: 12 x 4 mm at 5.96 mm (the smallest stock disc that floats a corner at >=
 - Maps: `out/stray_same.svg`, `out/stray_alternating.svg` (x-z plane through a magnet row,
   contours 5 / 1 / 0.5 mT).
 
+## One corner in sim-core (`corner`, 2026-11-02)
+
+The corner: 0.125 kg on the 12 x 4 mm N42 disc, with an 80-turn AWG 28 control coil wound round it
+(r 6.5-9.5 mm, 0.859 ohm). Its pull F(g, I) = a(g) + b(g) I + c(g) I^2 is tabulated from cfsem on
+2-12 mm (magnet and coil against their images), with the coil inductance L(g) and the magnet flux
+Psi(g) it links, which gives the coil equation V = R I + L dI/dt + (I L' + Psi') dg/dt. The body
+is a sim-core slide joint (`qfrc_applied` each step), the coil current integrated alongside.
+
+- Linearized at the zero-power gap 5.964 mm: negative stiffness k = 483.3 N/m, open-loop pole
+  p = sqrt(k/m) = 62.2 /s (an offset doubles every 11.1 ms); force per amp b = 0.0706 N/A;
+  L = 0.122 mH, L/R = 0.142 ms. Energy consistency: b = -dPsi/dg to 1.2e-5, c = -L'/2 to 1.0e-5.
+- Open loop, a 10 um offset released from rest (grows as cosh(p t)): 62.04 / 62.02 /s at 50 /
+  25 us steps against 62.18 predicted; with the coil shorted, 62.02 / 62.00 against the root
+  of L s^3 + R s^2 + (b^2/m - k L/m) s - k R/m = 0, 62.16 (the shorted coil barely damps it:
+  b is small).
+- Control: a gap PD at 2 kHz (wn = 3p, damping 0.7) commands current (limited to +-10 A); a PI
+  current loop at 1 kHz with anti-windup drives the coil from +-12 V; lift-off ramps the setpoint
+  over 0.3 s. Zero-power: the setpoint drifts against the mean current (tau 0.5 s) until the
+  magnet alone carries the load. The first version, without the current limit, anti-windup and
+  ramp, lost the corner even without noise.
+- With a 1 um gap sensor and a 100 Hz derivative filter, 4 s runs with +25 g at 1.5 s:
+
+  | Mode | Before payload | After +25 g |
+  |---|---|---|
+  | gap hold | 5.964 mm, 0.4 um rms, 75 mW | 6.018 mm, 3.71 A, 11.9 W |
+  | zero-power | 5.964 mm, 0.4 um rms, 74 mW | 5.512 mm (table: 5.509), +0.02 A, 80 mW |
+
+  Zero-power carries the payload on about 150 times less power.
+- The sensor sets the power: coil power from sensor noise alone (zero-power, no payload):
+
+  | Sensor noise | D filter | Gap rms | Current rms | Coil power |
+  |---|---|---|---|---|
+  | 1 um | 100 Hz | 0.43 um | 0.29 A | 74 mW |
+  | 1 um | 300 Hz | 0.39 um | 0.61 A | 323 mW |
+  | 2 um | 100 Hz | 0.87 um | 0.59 A | 298 mW |
+  | 2 um | 300 Hz | 0.81 um | 1.23 A | 1291 mW |
+  | 5 um | 100 Hz | 2.21 um | 1.47 A | 1858 mW |
+  | 5 um | 300 Hz | 2.50 um | 3.05 A | 7987 mW |
+
+  Power grows as the square of the noise, because the small force per amp needs high gains.
+  Requirement: a gap sensor with about 1 um noise at 2 kHz. For a given winding volume the
+  wire choice does not help (b^2/R is fixed); a bigger coil or a model-based estimator would.
+
 ## Plan
 
-1. Forces, sizing and stray field (done for the demonstrator). The corner's stiffness, control
-   authority and coil inductance at the chosen 12 x 4 mm disc come with stage 2.
-2. One corner in CortenForge's simulator: the open-loop instability at its predicted rate, then
-   gap control through the coil (voltage drive, inductance, sensor noise), then zero-power
-   control.
+1. Forces, sizing and stray field (done for the demonstrator).
+2. One corner in CortenForge's simulator (done): instability at the predicted rate, gap control
+   through the coil, zero-power control, the gap-sensor requirement.
 3. The cart: four corners, pitch and roll, payload changes, a stop at a station.
 4. Linear-motor propulsion along the track.
 5. Printable track and cart parts, a parts list.

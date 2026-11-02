@@ -10,8 +10,10 @@ a/R0 0.1) and its plasma shape follows the PF currents; field lines traced throu
 lie on nested flux surfaces with q matching the equilibrium; coils, vessel and flux surfaces
 export as checked CortenForge meshes. Warm-up 2 done; next in the plan: magnet-tracking.
 maglev-train started (2026-11-02), as an ultra-clean hybrid-EMS hospital delivery cart: `check`
-validates the force and inductance model (16 of 16) and shows why hybrid (permanent magnets
-carry the load, coils stabilize). magnet-tracking waits for hardware.
+validates the force and inductance model (19 of 19) and shows why hybrid (permanent magnets
+carry the load, coils stabilize); `stray` sizes 12 x 4 mm discs and maps the 0.5 mT line;
+`corner` levitates one corner in sim-core with zero-power control (80 mW with a 1 um gap sensor).
+magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
 ## Order
