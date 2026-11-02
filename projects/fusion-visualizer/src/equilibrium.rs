@@ -525,6 +525,8 @@ pub struct Summary {
     pub beta_p: f64,
     pub li: f64,
     pub ip: f64,
+    /// (m^3) plasma volume, summed over plasma nodes.
+    pub volume: f64,
 }
 
 pub fn summarize(grid: &Grid, eq: &Equilibrium, prof: &Profile) -> Summary {
@@ -584,6 +586,7 @@ pub fn summarize(grid: &Grid, eq: &Equilibrium, prof: &Profile) -> Summary {
         delta_lower: (r_geo - bot.0) / a,
         beta_p: 2.0 * MU_0 * (p_int / vol) / (bpa * bpa),
         li: (bp2_int / vol) / (bpa * bpa),
+        volume: vol,
         ip,
 
         lcfs,

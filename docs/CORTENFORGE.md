@@ -98,11 +98,29 @@ None yet.
 - **perf** (2026-11-02): `mesh` (single-threaded) on the former half, 114 mm across: 11 s at
   0.5 mm cells, 85 s at 0.25 mm (1.06M faces, 53 MB STL). `mesh_adaptive` at 0.25 mm took 24.5 s
   for 2.4M faces on the one-piece former.
+- **works** (2026-11-02): coil solids for a tokamak: rectangular-section rings (cylinder minus
+  cylinder) and a torus rotated into a poloidal plane, meshed by marching cubes and welded: all
+  watertight and manifold, volumes within -1.7e-4 to -2.3e-3 of the exact formulas at 5 mm cells
+  (-7.6e-4 for the torus at 2.5 mm). The 4.15 m vertical-field ring took 3.1 s (671k faces). One
+  torus meshed once and rotated 16 times gave the TF set.
 - **API** (2026-11-02): no tube or annulus primitive, and `Solid::cylinder` panics on radius 0
   (solid/primitives.rs:58), so a helper built on subtract needs a special case at r = 0.
   `Solid::cone` opens downward from its apex (:153); an upward support cone needs a rotation.
 
 ### `mesh` (printability, repair, io)
+
+- **works** (2026-11-02): a tokamak as meshes (fusion-visualizer `mesh`): IndexedMesh built
+  directly for revolved flux surfaces, cf-design solids for the coils, `validate_mesh` and
+  `weld_vertices` from mesh-repair, `save_mesh` picking STL from the extension. All 14 parts come
+  out watertight and manifold. `signed_volume` and `surface_area` make good checks: revolved
+  surfaces match Pappus to exactly the faceting term (-1.00e-4 at 256 sides, (2 pi / n)^2 / 6),
+  and the plasma surface mesh matches the equilibrium's own volume sum to 6.2e-4.
+- **API** (2026-11-02): no revolve or lathe for a profile, though fusion and many mechanical
+  parts are solids of revolution. `mesh-loft` sounds like it, but it joins two contact patches
+  into a bushing (mesh-loft lib.rs:1-30). A revolve was 40 lines over `IndexedMesh`.
+- **docs** (2026-11-02): volume and area live on cf-geometry's `IndexedMesh`
+  (`signed_volume`, `surface_area`; cortenforge-geometry mesh.rs:202, 255), not in `mesh-measure`,
+  the crate named for it (dimensions, OBB, cross-sections, distances only). Found by grepping.
 
 - **works** (2026-11-02): the overhang check caught the real flaw in the first former: printed
   upright, three 12 mm annular channel ceilings (3,820 mm^2 each) at 90 deg. That drove the

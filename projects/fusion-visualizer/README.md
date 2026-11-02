@@ -20,6 +20,8 @@ Trace field lines around a small tokamak or stellarator and show the plasma equi
   `out/shape_*.svg` (git-ignored).
 - `trace`: 16 TF coils checked against Ampere, then field lines of the shaped equilibrium traced
   through them (about 5 s); writes `out/poincare.svg`.
+- `mesh`: the tokamak as CortenForge meshes, each part checked; STL files (mm) and a cut-away
+  render in `out/mesh/` (about 20 s).
 
 ## Grad-Shafranov plumbing (`src/gs.rs`)
 
@@ -131,10 +133,32 @@ psiN 0.1-0.95 and run 100 toroidal turns, RK4 in the toroidal angle at 384 steps
   the outer lines bunch into groups, q being close to a ratio of small integers there.
 - Not included: the plasma's own change to the toroidal field (FF'), so q uses the vacuum F0.
 
+## Meshes (2026-11-02)
+
+The shaped equilibrium (elongation 80 kA, triangularity +60 kA) with all its coils, in mm:
+
+- Flux surfaces at psiN 0.25, 0.5, 0.75 and the last closed surface, and the vessel wall:
+  equilibrium contours resampled to 256 points and revolved 256 ways into IndexedMesh tori
+  (131k faces each). Volumes match Pappus for the revolved polygon to -1.00e-4, exactly the
+  faceting term (2 pi / 256)^2 / 6; the last closed surface also matches the equilibrium's own
+  node-sum volume (4.019 m^3) to 6.2e-4 and Pappus' area to 5.6e-5.
+- PF coils and the central solenoid: cf-design rings (cylinder minus cylinder), marching cubes at
+  5 mm, welded: volumes -1.7e-4 to -2.3e-3 from pi (r1^2 - r0^2) h.
+- TF coils: one cf-design torus (40 mm conductor radius) rotated into its poloidal plane,
+  meshed at 2.5 mm (-7.6e-4 from 2 pi^2 R r^2) and copied round 16 times.
+- All 14 parts watertight and manifold (mesh-repair `validate_mesh`). STL: `tf_coils`,
+  `pf_coils`, `vessel`, `lcfs`, `surface_psin_*` in `out/mesh/`.
+- `out/mesh/tokamak.bmp`: a cut-away render from the meshes by a small z-buffer rasterizer
+  (`src/render.rs`), inner surfaces cut back further so each shows.
+
 ## Plan
 
 1. `check` (done).
 2. Free-boundary equilibrium (done): radial feedback, symmetric shapes, shape follows the PF
    currents.
 3. Field lines (done): TF coils, tracing, Poincare section, q against the equilibrium.
-4. Output: plots, and CortenForge meshes of the coils and flux surfaces.
+4. Meshes (done): coils, vessel and flux surfaces as checked CortenForge meshes, STL and a render.
+
+Possible next steps: the plasma's own toroidal field (FF') in q; a vertical position control
+coil for asymmetric (single-null) shapes; 3D flux surfaces built from the traced lines, ripple
+included; a stellarator from cfsem's linear filaments.

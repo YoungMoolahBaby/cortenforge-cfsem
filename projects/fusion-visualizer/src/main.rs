@@ -6,7 +6,9 @@ mod check;
 mod contour;
 mod equilibrium;
 mod gs;
+mod meshes;
 mod plot;
+mod render;
 mod shafranov;
 mod shape;
 mod tf;
@@ -23,8 +25,9 @@ fn main() {
         "shafranov" => shafranov::run(),
         "shape" => shape::run(),
         "trace" => trace::run(),
+        "mesh" => meshes::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, shafranov, shape, trace");
+            eprintln!("unknown mode {other:?}; modes: check, shafranov, shape, trace, mesh");
             std::process::exit(2);
         }
     }
