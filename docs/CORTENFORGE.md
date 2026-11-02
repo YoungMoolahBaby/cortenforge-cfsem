@@ -88,6 +88,18 @@ None yet.
   That is the problem's shape, not a bug, but the docs pitch these as general gradient-free
   optimizers. A grid over the integer with a 1-D search inside (10,800 evaluations, 90 s here)
   wins easily; a note that they are local, isotropic and continuous-only would set expectations.
+- **works** (2026-11-02): on a smooth score in 3-4 parameters `RicherSa` is as good as an
+  exhaustive search. Wireless-charging `layout` sizes a charging pad (inner and outer radius,
+  turn count, array pitch; the score is a logistic-weighted area, so it has no cliffs): with 1600
+  evaluations (1.7-4.0 s) RicherSA reaches a 0.1 mm refined grid's optimum for one coil
+  (1301.9, all three seeds within 0.04%) and passes it for a three-coil array (1554.2 vs 1539.7),
+  finding a second optimum outside the refinement's window. It also beat the plain 1 mm grid I
+  first used as the reference (1316 vs 1276 mm^2). The contrast with coil-designer is the
+  landscape (smooth here; one narrow ridge per integer there), which the docs could say.
+- **API** (2026-11-02): `Sa` has no restart: on the three-coil array one seed in three settled at
+  35.8 (98% below the others) at both 400 and 1600 evaluations, in a region the design decoder
+  scores near zero. A restart on stagnation, or multiple starts, would save users running seeds
+  by hand.
 
 ### `sim-rl`
 
@@ -96,7 +108,10 @@ None yet.
   design quality: on the spacing-only problem the shipped design scored 5.072 mm against 5.493 mm
   for the best design CEM had actually evaluated (-7.7%), and it shipped below its best evaluated
   design in all 20 CEM runs across three `optimize` runs (by 0.05-7.7%). Users have to log every
-  evaluation in the reward closure to recover the true best.
+  evaluation in the reward closure to recover the true best. Seen again in wireless-charging
+  `layout` (2026-11-02): all 12 CEM runs shipped below their best evaluated design (by
+  0.1-1.2%), and at 1600 evaluations ended 1.7-3.4% under a refined grid where `RicherSa`
+  matched it.
 
 ### `cf-design`
 

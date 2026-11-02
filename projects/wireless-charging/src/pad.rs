@@ -22,23 +22,23 @@ use crate::loops::{Loop, P3, mutual, self_inductance};
 
 /// Pad coil: turn centres from r 10.825 to 21.425 mm (inner and outer diameters less the Litz
 /// radius), in the plane z = 0.
-const TX_WIRE: f64 = 0.575e-3;
+pub(crate) const TX_WIRE: f64 = 0.575e-3;
 const TX_TURNS: usize = 10;
 /// Receiver: 14 rectangular turns at a pitch of (44.25 - 28.75) / 2 / 14 mm.
-const RX_WIRE: f64 = 0.205e-3;
+pub(crate) const RX_WIRE: f64 = 0.205e-3;
 const RX_TURNS: usize = 14;
 /// Planes (m): the pad's ferrite 0.15 mm (adhesive) under its coil; the receiver's coil centre
 /// 2.0 (to the interface) + 2.5 + the two coils' half thicknesses above the pad coil's centre;
 /// the receiver's ferrite on its top face.
-const FERRITE_GAP: f64 = 0.15e-3;
-const RX_Z: f64 = TX_WIRE + 2.0e-3 + 2.5e-3 + 0.3e-3;
+pub(crate) const FERRITE_GAP: f64 = 0.15e-3;
+pub(crate) const RX_Z: f64 = TX_WIRE + 2.0e-3 + 2.5e-3 + 0.3e-3;
 /// Image reflections each way between two planes.
 const N_IMG: usize = 6;
 /// Litz resistance at ~100 kHz over DC (assumed); copper areas from the strand counts.
-const LITZ_AC: f64 = 1.2;
-const F: f64 = 100e3;
+pub(crate) const LITZ_AC: f64 = 1.2;
+pub(crate) const F: f64 = 100e3;
 
-fn tx_coil(m: usize) -> Vec<Loop> {
+pub(crate) fn tx_coil(m: usize) -> Vec<Loop> {
     let (r0, r1) = (10.25e-3 + TX_WIRE, 22.0e-3 - TX_WIRE);
     (0..TX_TURNS)
         .map(|k| {
@@ -52,7 +52,7 @@ fn tx_coil(m: usize) -> Vec<Loop> {
         .collect()
 }
 
-fn rx_coil(piece: f64) -> Vec<Loop> {
+pub(crate) fn rx_coil(piece: f64) -> Vec<Loop> {
     let p = (44.25e-3 - 28.75e-3) / 2.0 / RX_TURNS as f64;
     (0..RX_TURNS)
         .map(|k| {
@@ -63,7 +63,7 @@ fn rx_coil(piece: f64) -> Vec<Loop> {
 }
 
 /// Images of a loop in iron planes below (a) and/or above (b).
-fn images(l: &Loop, a: Option<f64>, b: Option<f64>) -> Vec<Loop> {
+pub(crate) fn images(l: &Loop, a: Option<f64>, b: Option<f64>) -> Vec<Loop> {
     match (a, b) {
         (None, None) => vec![],
         (Some(a), None) => vec![l.mirror(a)],
@@ -84,7 +84,7 @@ fn images(l: &Loop, a: Option<f64>, b: Option<f64>) -> Vec<Loop> {
 }
 
 /// (H) series inductance of a set of turns with images.
-fn l_coil(turns: &[Loop], wire: f64, a: Option<f64>, b: Option<f64>) -> f64 {
+pub(crate) fn l_coil(turns: &[Loop], wire: f64, a: Option<f64>, b: Option<f64>) -> f64 {
     turns
         .par_iter()
         .enumerate()
@@ -141,7 +141,7 @@ fn neumann_circles(c1: P3, r1: f64, t1: f64, c2: P3, r2: f64, t2: f64, n: usize)
 }
 
 /// Best link efficiency at the optimal load, both sides tuned.
-fn eta_max(k: f64, q1: f64, q2: f64) -> f64 {
+pub(crate) fn eta_max(k: f64, q1: f64, q2: f64) -> f64 {
     let x = k * k * q1 * q2;
     x / (1.0 + (1.0 + x).sqrt()).powi(2)
 }

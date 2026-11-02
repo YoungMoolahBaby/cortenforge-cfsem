@@ -30,7 +30,9 @@ needs about 2.0-2.3 W of the 4.3-4.5 W supplied, lift-off and a payload settle d
 tray are printable. Main 4's cart side done in simulation. Pad and receiver started: `pad` models
 the Qi A11 pad and receiver example 1 (inductances against the spec: +11% / +17% / +47% with
 ferrite as ideal planes, an upper bound) and maps the sweet spot (k within 90% only 6 mm from
-centre). Next: widen it with the pad layout.
+centre); `layout` widens it on a free-space efficiency score: one 80 mm coil covers 4x the A11's
+area, three overlapping round coils 4.7x (2x Qi A6), with sim-opt's RicherSA matching or beating a
+refined grid. Next: a printable pad former.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 

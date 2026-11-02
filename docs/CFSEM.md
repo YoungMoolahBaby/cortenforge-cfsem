@@ -147,3 +147,9 @@ setup, works) and the date, with file:line in the crate source
   Neumann integral on exact circles to 5.6e-6 / 6.3e-6 at 1024 sides (second order). The Qi A11
   pad coil comes out 3.74 uH in free space and 6.99 uH over an ideal iron plane, against the
   spec's 6.3 uH +- 10% with real ferrite (wireless-charging `pad`).
+- works, 2026-11-02: `vector_potential_linear_filament` as a field source for exact-circle
+  couplings: the receiver's A integrated round a ring by the trapezoid rule converges to 2e-16
+  at 1 mm spacing, and a table of 73,416 rings builds in 5.0 s; `flux_circular_filament` gives
+  the coaxial mutuals of a pad coil (with Wien's ring formula, 3.7403 uH against 3.7422 uH from
+  polygons). The Qi A6 coil over an ideal iron plane: 11.93 / 13.57 uH against the spec's 11.5 /
+  12.5 uH +- 10% (wireless-charging `layout`).

@@ -20,6 +20,8 @@ Run: `cargo run --release -p wireless-charging -- <mode>`.
   images), induced voltage in the lift and stator coils, stray field against ICNIRP (about 23 s).
 - `pad`: the Qi A11 pad and receiver example 1: offset and tilted coupling checked, inductances
   against the spec (ferrite as iron planes), the coupling map and the sweet spot (about 33 s).
+- `layout`: widening the sweet spot: a ring table checked against direct sums, the A11 and A6
+  benchmarks, grids of one- and three-coil pads, and sim-opt / sim-rl against them (about 75 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -241,6 +243,72 @@ centred value:
 - Both ferrite bounds give the same shape (the areas differ by 15-23%), so the layout can be
   compared in free space.
 
+## Pad layout (`layout`, 2026-11-02)
+
+The score: the area of receiver centres (receiver example 1, long side along x, within
+|x| <= 40 mm and |y| <= 24 mm, 2 mm steps) where the link's best efficiency (both sides tuned,
+best load, 100 kHz, free space) is at least 85%. A pad is one or three round single-layer coils
+of the A11 Litz (pitch at least 1.15 mm); a three-coil pad is an overlapping row like Qi's A6: two
+coils in the lower layer, one on top between them, within |x| <= 52 mm, the pad driving whichever
+couples best.
+
+Every round coil is a sum of rings, so the receiver's coupling to one ring is tabulated over
+radius (3-40 mm, 1 mm steps), offset (2 mm steps) and the two layer heights: 73,416 rings in
+5.0 s, each an exact circle (cfsem's vector potential of the receiver, trapezoid rule) and
+interpolated (Catmull-Rom). Coil inductance from Wien's ring formula plus cfsem's coaxial
+mutuals.
+
+- Ring sum: trapezoid at 1 mm vs 0.5 mm spacing -2.2e-16; interpolated vs direct at off-grid
+  radii and offsets within 2.2e-4 of the centred value; the A11 through the table vs 256-gon
+  polygons +3.8e-5 (centred) and +6.0e-5 (at 12, 8 mm); the A11's inductance 3.7403 uH from rings,
+  3.7422 uH from polygons.
+- The winners recomputed without the table (exact rings at every position): the same area, and
+  the soft score to 0.1 mm^2.
+- Qi A6 (section 2.2.6; rectangular coils 45.2 x 53.2 mm outside, 19.5 x 27.5 mm inside, 12
+  turns, 24.6 mm apart, 1.5 mm layers) computed directly as polygons. Its inductance over an
+  ideal ferrite plane: 11.93 uH for the top coil and 13.57 uH for the lower, against the spec's
+  11.5 and 12.5 uH +- 10%: both inside.
+
+| Pad | Area with efficiency >= 85% | Coil inductance | Centred k | Q1 |
+|---|---|---|---|---|
+| Qi A11 (one round coil, r 10.8-21.4 mm, 10 turns) | 332 mm^2 | 3.74 uH | 0.464 | 59 |
+| Qi A6 (three overlapping rectangular coils) | 788 mm^2 | 7.36 uH | 0.396 | 68 |
+| best one coil: r 14.7-40.0 mm, 23 turns | 1316 mm^2 | 29.67 uH | 0.380 | 121 |
+| best three coils: r 6.4-26.0 mm, 18 turns, 26.0 mm apart | 1548 mm^2 | 9.13 uH | 0.482 | 80 |
+
+- Both winners pack turns at the least pitch (1.15 mm) out to the edge they are allowed. A
+  bigger coil couples less at the centre but more evenly, and its longer copper buys Q faster
+  than it loses k: one 80 mm coil already covers four times the A11's area.
+- Three overlapping coils, each about the A11's size but with turns down to 6.4 mm, beat the big
+  coil by 18% at a third of its inductance (9.13 against 29.67 uH, close to the Qi coils' 6-12
+  uH, so a Qi-class inverter can drive it; the big coil would need its own). They need coil
+  selection, as A6 does.
+- They also beat A6 by about 2x on this score. Not a verdict on A6: the score is free space
+  (A6 is designed with ferrite, which raises Q and so the efficiency everywhere), one receiver
+  orientation, and efficiency only; A6's rectangular coils and Qi's own criteria (power control
+  range, foreign-object detection) are not scored.
+
+CortenForge's optimizers on the same score (soft area: each position weighted by a logistic in
+efficiency 0.4 points wide, so the score is smooth), as one-step episodes like coil-designer's,
+three seeds, 400 and 1600 evaluations (0.4-4 s a run):
+
+| | One coil (3 parameters) | Three coils (4 parameters) |
+|---|---|---|
+| reference | refined grid 1301.9 | refined grid 1539.7 |
+| sim-opt RicherSA, 1600 | 1301.9 / 1301.4 / 1301.9 | 1549.2 / 1554.2 / 1554.1 |
+| sim-opt SA, 1600 | 1301.1 / 1299.8 / 1301.5 | 1550.1 / 35.8 / 1550.7 |
+| sim-rl CEM, 1600 | 1267.8 / 1260.9 / 1280.4 | 1486.7 / 1510.7 / 1507.3 |
+
+- The reference: every design on a 1 mm grid (7,064 single coils in 0.5 s; 10,350 arrays in
+  1.2 s), then a 0.1 mm local refinement round the best. The first comparison used the 1 mm grid
+  alone, and RicherSA and SA beat it (1316 vs 1276 mm^2): the grid was too coarse, not the
+  optimizers too good.
+- RicherSA hits the refined grid's optimum for one coil and goes past it for three (+0.9%), in a
+  different place (r_in 6.4 mm, outside the refinement's +-1.5 mm window): the array has more than
+  one good design. SA is as good when it works, but one seed in three stuck at 35.8 for the array
+  at both budgets. CEM ends 1.7-3.4% below the refined grid at 1600 evaluations, and below the
+  best it evaluated.
+
 ## Plan
 
 1. Checks (done).
@@ -253,6 +321,7 @@ centred value:
    the cart's power bus and buffer in the trip (maglev-train `cart`).
 5. Pad and receiver from the Qi reference designs (done): inductances against the spec, the
    coupling map and the sweet spot.
-6. Pad layout: widen the sweet spot (coil size and turn spacing, overlapping coil arrays as in
-   free-positioning pads), with sim-opt against a grid.
+6. Pad layout (done): one 80 mm coil covers 4x the A11's area, three overlapping round coils
+   4.7x (2x Qi A6), on a free-space efficiency score; sim-opt's RicherSA matches or beats a
+   refined grid.
 7. A printable pad former for the chosen layout.

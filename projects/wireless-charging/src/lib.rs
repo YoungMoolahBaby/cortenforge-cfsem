@@ -3,6 +3,7 @@
 
 pub mod check;
 pub mod effects;
+pub mod layout;
 pub mod link;
 pub mod loops;
 pub mod pad;
