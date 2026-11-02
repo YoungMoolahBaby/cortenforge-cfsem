@@ -31,6 +31,7 @@ pub fn helmholtz(r_mean: f64, spacing: f64, layers: usize, per_layer: usize, wir
         per_layer,
         wire,
         sign: 1.0,
+        partial: 0,
     };
     Coil {
         packs: vec![pack(-0.5 * spacing), pack(0.5 * spacing)],

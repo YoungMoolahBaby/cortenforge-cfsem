@@ -4,6 +4,7 @@
 
 mod check;
 mod coil;
+mod design;
 mod optimize;
 mod pack;
 mod refs;
@@ -18,8 +19,10 @@ fn main() {
         }
         "pack" => pack::run(),
         "optimize" => optimize::run(),
+        "design" => design::run(),
+        "former" => design::run_former(&std::env::args().skip(2).collect::<Vec<_>>()),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, pack, optimize");
+            eprintln!("unknown mode {other:?}; modes: check, pack, optimize, design, former");
             std::process::exit(2);
         }
     }

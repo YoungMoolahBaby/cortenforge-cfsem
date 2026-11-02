@@ -53,11 +53,21 @@ pub struct Pack {
     pub wire: Wire,
     /// +1 or -1: current direction relative to the series current.
     pub sign: f64,
+    /// Turns in the outermost layer, centred axially; 0 means it is full like the others.
+    pub partial: usize,
 }
 
 impl Pack {
     pub fn turns(&self) -> usize {
-        self.layers * self.per_layer
+        self.layers * self.per_layer - self.missing()
+    }
+    /// Empty positions in the outermost layer.
+    fn missing(&self) -> usize {
+        if self.partial == 0 {
+            0
+        } else {
+            self.per_layer - self.partial
+        }
     }
     /// (m) radial depth.
     pub fn depth(&self) -> f64 {
@@ -75,9 +85,15 @@ impl Pack {
     pub fn centres(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         let p = self.wire.outer;
         let z0 = self.z_mid - 0.5 * self.width();
+        let skip = self.missing();
         (0..self.layers).flat_map(move |l| {
-            (0..self.per_layer)
-                .map(move |k| (self.r_in + (l as f64 + 0.5) * p, z0 + (k as f64 + 0.5) * p))
+            // The outermost layer leaves its missing turns split evenly at both ends.
+            let (lo, hi) = if l + 1 == self.layers {
+                (skip / 2, self.per_layer - (skip - skip / 2))
+            } else {
+                (0, self.per_layer)
+            };
+            (lo..hi).map(move |k| (self.r_in + (l as f64 + 0.5) * p, z0 + (k as f64 + 0.5) * p))
         })
     }
 }

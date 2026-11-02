@@ -351,6 +351,8 @@ version = "0.1.0"
 dependencies = [
  "cfsem",
  "cortenforge",
+ "nalgebra 0.34.2",
+ "rayon",
 ]
 
 [[package]]

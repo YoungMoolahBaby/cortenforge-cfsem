@@ -23,6 +23,11 @@ The gentlest way to learn cfsem.
   volume against the ideal thin-loop pair, with a spacing scan.
 - `optimize`: spacing and pack shape for the largest uniform sphere: a brute-force grid, then
   CortenForge's gradient-free optimizers on the same problem (about 6 minutes).
+- `design`: the least-power pair meeting a robust uniformity spec (about 2 minutes), then its
+  former.
+- `former [turns per layer] [spacing mm] [cell mm] [mc|dc|adaptive]`: the printed coil former
+  alone (defaults: the chosen design, 0.25 mm marching cubes). Writes `out/former_half.stl` and
+  `out/former_washer.stl` (git-ignored).
 
 Reference formulas written independently of cfsem live in `src/refs.rs`.
 
@@ -112,9 +117,48 @@ Earlier runs: run 1 searched 4-25 layers and 0.95-1.10 R and found the optimum o
 (4 layers), which prompted the wider box and the gap constraint; run 2 rounded the layer count,
 giving the end values half-width bins, fixed in run 3 (no change in outcome).
 
+## `design` (2026-11-02)
+
+The power-aware objective: least power at 1 mT, subject to a 10 mm diameter sphere uniform to
+1e-4 that holds for any spacing error within +-0.1 mm (an FDM tolerance), packs at least 5 mm
+apart. Each coil is exactly 100 turns of AWG 22 at 50 mm mean radius (a partial last layer, so
+shapes compare at equal copper). For each axial turn count (4-100) it finds the spacing window
+that meets the spec and centres the design in it. 97 shapes, 103 s.
+
+- 96 of 97 shapes have a window of at least 0.2 mm (4 turns/layer misses by 0.01 mm). Windows
+  are tight for compact packs (0.21-0.31 mm for 5-24 turns/layer) and widen for long ones.
+- Power is nearly flat across compact packs (1.010-1.040 W for 5-16 turns/layer) and climbs for
+  long ones (1.225 W at 2 layers, 1.865 W at 1 layer); the long ones buy more margin, not more
+  spec.
+- Chosen: 7 turns/layer x 15 layers (last layer 2 turns), 4.93 x 10.56 mm, r_in 44.72 mm, at
+  49.542 mm spacing (0.9908 R; window 49.43-49.65 mm). The sphere is 5.38 mm at the centre and
+  >= 5.02 mm across +-0.1 mm. 1.811 mT/A: 1 mT at 0.552 A, 1.83 V, 1.010 W; R 3.311 ohm,
+  L 3.975 mH, 62.5 m of wire.
+
+## The former (2026-11-02)
+
+First try, one piece printed upright: printability flagged three 12 mm annular channel ceilings
+at 90 deg, which would need support inside the winding channels. Redesign, two part types:
+
+- **Half** (print 2): tube (bore 84.44 mm, wall 2.5 mm), winding floor flange (113.56 mm) with a
+  40 deg support cone under it, and a bed collar with three blind dowel holes for 1.75 mm
+  filament, pointed so their ends need no bridge. Printed standing on its mid-plane face; the
+  halves butt there.
+- **Washer** (print 2): flat ring that slides over the tube end to close the channel.
+- The winding rests on the floor, so the spacing is 2 x (floor + pack/2). The floor is snapped to
+  0.1 mm layers: 22.300 mm, giving 49.527 mm (-0.015 mm from the design, inside the window).
+  At 0.2 mm layers a slicer would have put it at 22.4, +0.185 mm on the spacing, past the whole
+  tolerance. The pack width assumes 0.704 mm wire over enamel; 7 turns of wire 0.01 mm thicker
+  move each coil 0.035 mm, so measure the wire and set `ENAMEL_BUILD` before printing.
+- Mesh: marching cubes at 0.25 mm, welded at 1 um; worst vertex 0.062 mm off the solid; SDF
+  probes on the floor, winding surface, bore and mid-plane faces read 0.0000 mm. The washer is
+  "ready for printing". The half's remaining flags are 0.0 mm^2 slivers on the support cone at
+  mesh-grid planes (details in `docs/CORTENFORGE.md`); the orientation search keeps both parts as
+  modelled.
+- Not yet modelled: wire entry and exit slots, a way to fix the washers (glue for now).
+
 ## Next
 
-1. A printable coil former with cf-design for the chosen design, exported and checked for
-   printability, with the spacing tolerance in mind.
-2. Optionally, a power- or field-constrained objective (uniform sphere per watt), since
-   uniformity alone drifts to long, inefficient coils.
+1. Wire slots in the floor flange; print, wind and measure B0 and the field profile against the
+   model (a hardware step).
+2. A Maxwell gradient pair through the same pipeline.

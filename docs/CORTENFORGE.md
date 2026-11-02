@@ -69,6 +69,64 @@ None yet.
   design in all 20 CEM runs across three `optimize` runs (by 0.05-7.7%). Users have to log every
   evaluation in the reward closure to recover the true best.
 
+### `cf-design`
+
+- **works** (2026-11-02): code-first CSG is pleasant for a coil former: cylinders, a flipped
+  cone, `union`/`subtract`/`intersect`/`translate`/`rotate`, about 80 lines for two printable
+  parts (coil-designer src/design.rs). The exact SDF doubles as a measuring tool: probing the
+  solid at the floor, winding surface, bore and mid-plane faces reads 0.0000 mm, and evaluating
+  it at every mesh vertex measures mesh error directly.
+- **bug** (2026-11-02): the sharp-feature meshers misplace vertices at concave corners.
+  `mesh_dc` and `mesh_adaptive` (solid/query.rs:113, 141) on the one-piece former (cylinders
+  unioned and subtracted, 0.5 mm cells) leave 1% of vertices more than a quarter cell off the
+  surface, worst 0.48 / 0.46 mm, all where a flange meets the tube, pulled into the solid. The
+  folds read as 2,573 / 3,716 "critical" thin walls of 0.03 mm in mesh-printability. Marching
+  cubes (`mesh`, :82) on the same part: worst 0.124 mm (a quarter cell, corner rounding), no
+  thin walls. The docs pitch DC as "preserving sharp features"; on concave corners it does
+  worse than MC.
+- **bug** (2026-11-02): `mesh` ("watertight, manifold", solid/query.rs:75) is both by edge
+  count, but emits coincident vertices under different indices (914 pairs on a former half at
+  0.5 mm cells, 1,489 at 0.25), giving 1,828 / 2,978 zero-area faces, plus sub-micron slivers
+  where the surface grazes grid corners (an edge of 0.59 um). mesh-printability reads these as
+  100+ self-intersecting pairs. At 0.5 mm cells `mesh_repair::weld_vertices` at 1 um clears
+  them with no face collapsing. At 0.25 mm it leaves 13 zero-area faces and 34 pairs of slivers
+  2 um apart, all on the 40 deg support cone where it crosses grid planes (z = 10.75, 11.25,
+  ...), and the remaining "critical" overhangs (10) and thin walls (6) are 0.0 mm^2 single faces
+  at the same planes. No weld setting tried makes `is_printable()` true for the half, though
+  nothing flagged is a real print problem. A weld and sliver cleanup inside `mesh` would save
+  every user this detour.
+- **perf** (2026-11-02): `mesh` (single-threaded) on the former half, 114 mm across: 11 s at
+  0.5 mm cells, 85 s at 0.25 mm (1.06M faces, 53 MB STL). `mesh_adaptive` at 0.25 mm took 24.5 s
+  for 2.4M faces on the one-piece former.
+- **API** (2026-11-02): no tube or annulus primitive, and `Solid::cylinder` panics on radius 0
+  (solid/primitives.rs:58), so a helper built on subtract needs a special case at r = 0.
+  `Solid::cone` opens downward from its apex (:153); an upward support cone needs a rotation.
+
+### `mesh` (printability, repair, io)
+
+- **works** (2026-11-02): the overhang check caught the real flaw in the first former: printed
+  upright, three 12 mm annular channel ceilings (3,820 mm^2 each) at 90 deg. That drove the
+  redesign (two halves printed on their mid-plane faces, support cones under the floors, flat
+  washers), after which the washers are "ready for printing" and the half has only sub-mm^2
+  artifacts left (below).
+- **bug** (2026-11-02): self-intersection false positives. The check skips pairs that share an
+  edge by index and says "vertex-only contact is not an intersection ... and is not flagged"
+  (mesh-printability validation/mod.rs:2329-2331), but all 100 reported pairs on an unwelded
+  marching-cubes mesh touch at coincident positions under different indices, and after a 10 nm
+  weld the rest are coplanar sub-micron slivers touching at a point. Each run also reports a
+  different first pair when truncated at 100. Either weld before the check or test touching
+  geometrically.
+- **docs** (2026-11-02): a flat annular overhang is reported as a `LongBridge` "spanning 113.7
+  mm" (the ring's diameter; the span is "max of the two perpendicular-plane bbox extents",
+  regions.rs:101). It is a 12 mm cantilever, not a bridge; the message points at the wrong fix.
+- **API** (2026-11-02): `find_optimal_orientation` (orientation.rs:85) tilted the one-piece
+  former 45 deg (all faces then at or under 45 deg, but resting on a flange rim, no bed
+  contact), as cortenforge-play found for its parts. On the redesigned parts it keeps them as
+  modelled.
+- **API** (2026-11-02): `PrintValidation::summary()` gives counts only ("Not printable: 8215
+  critical issue(s)"); grouping `issues` by type and reading `location` was needed to tell
+  real overhangs from mesh artifacts.
+
 ### Platform
 
 None yet.

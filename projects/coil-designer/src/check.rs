@@ -83,6 +83,7 @@ fn winding_packs(t: &mut Tally) {
         per_layer: 6,
         wire,
         sign: 1.0,
+        partial: 0,
     };
     let coil = Coil { packs: vec![pack] };
     let f = coil.filaments();
@@ -112,6 +113,7 @@ fn winding_packs(t: &mut Tally) {
         per_layer,
         wire,
         sign: 1.0,
+        partial: 0,
     };
     let coil = Coil { packs: vec![pack] };
     let want = wheeler_multilayer(
@@ -138,6 +140,7 @@ fn winding_packs(t: &mut Tally) {
         per_layer,
         wire,
         sign: 1.0,
+        partial: 0,
     };
     let (a, l, n) = (pack.r_mean(), pack.width(), per_layer as f64);
     let sheet = current_sheet(a, l, n);
@@ -165,6 +168,7 @@ fn winding_packs(t: &mut Tally) {
             per_layer,
             wire,
             sign: 1.0,
+            partial: 0,
         };
         let coil = Coil { packs: vec![pack] };
         let got = coil.field(1.0, &[0.0], &[0.0]).1[0];
