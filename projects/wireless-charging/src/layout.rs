@@ -44,8 +44,12 @@ const ETA: f64 = 0.85;
 const XS: (i32, i32) = (-20, 20);
 const YS: i32 = 12;
 const STEP: f64 = 2e-3;
-/// Pad footprint for arrays: coils within |x| <= 52 mm.
+/// Pad footprint for arrays: turn centrelines within |x| <= 52 mm.
 const HALF_PAD: f64 = 0.052;
+/// Least pitch of the array: the outer pair (same layer) keeps its outermost turns a wire apart.
+fn s_min(r_out: f64) -> f64 {
+    r_out + 0.5 * PITCH
+}
 
 /// The receiver as straight segments (each side one exact segment), 1 A per turn.
 struct Segs {
@@ -262,7 +266,8 @@ impl Design {
         let n_max = ((r_out - r_in) / PITCH).floor() as usize + 1;
         let n = 2 + ((t(2) * (n_max - 1) as f64) as usize).min(n_max - 2);
         let s = if three {
-            r_out + t(3) * (2.0 * HALF_PAD - 4.0 * r_out).max(0.0) * 0.5
+            let lo = s_min(r_out);
+            lo + t(3) * (HALF_PAD - r_out - lo).max(0.0)
         } else {
             0.0
         };
@@ -329,6 +334,45 @@ impl Scorer {
         };
         self.area(l1, r1, &m_at)
     }
+}
+
+/// A pad scored without the table (exact rings at every position): (area with efficiency >= 85%
+/// in mm^2, soft area, coil inductance, centred k, Q1). `s` = 0 for one coil.
+pub(crate) fn direct_area(r_in: f64, r_out: f64, n: usize, s: f64) -> (f64, f64, f64, f64, f64) {
+    let d = Design { r_in, r_out, n, s };
+    let rx = rx_segs();
+    let rx_turns = rx_coil(1e-3);
+    let l2 = l_coil(&rx_turns, RX_WIRE, None, None);
+    let r2 = rx_turns.iter().map(Loop::length).sum::<f64>() * 1.72e-8
+        / (26.0 * PI / 4.0 * 0.08e-3 * 0.08e-3)
+        * LITZ_AC;
+    let (rings, coils) = (d.rings(), d.coils());
+    let l1 = l_rings(&rings);
+    let q1 = W * l1 / (rings.iter().map(|r| 2.0 * PI * r).sum::<f64>() * ohm_per_m());
+    let k_at = |x: f64, y: f64| {
+        coils
+            .iter()
+            .map(|&(cx, l)| {
+                rings
+                    .iter()
+                    .map(|&r| ring_m(&rx, r, cx - x, -y, SEPS[l], 1e-3))
+                    .sum::<f64>()
+                    .abs()
+            })
+            .fold(0.0, f64::max)
+            / (l1 * l2).sqrt()
+    };
+    let (hard, soft) = positions()
+        .par_iter()
+        .map(|&(x, y, w)| {
+            let e = eta_max(k_at(x, y), q1, W * l2 / r2);
+            (
+                if e >= ETA { w } else { 0.0 },
+                w / (1.0 + (-(e - ETA) / 0.004).exp()),
+            )
+        })
+        .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
+    (hard, soft, l1, k_at(0.0, 0.0), q1)
 }
 
 /// One-step episode for sim-opt / sim-rl: actions carry the design, the reward is its soft area.
@@ -658,7 +702,7 @@ pub fn run() {
             }
             let n_max = ((r_out - r_in) / PITCH).floor() as usize + 1;
             for n in 2..=n_max {
-                let mut s = r_out;
+                let mut s = s_min(r_out);
                 while s + r_out <= HALF_PAD + 1e-9 {
                     c3.push(Design { r_in, r_out, n, s });
                     s += 2e-3;
@@ -706,7 +750,7 @@ pub fn run() {
                         (-10..=10).map(|k| d.s + 2e-4 * k as f64).collect()
                     };
                     for s in ss {
-                        if s != 0.0 && (s < r_out || s + r_out > HALF_PAD + 1e-9) {
+                        if s != 0.0 && (s < s_min(r_out) - 1e-12 || s + r_out > HALF_PAD + 1e-9) {
                             continue;
                         }
                         v.push(Design { r_in, r_out, n, s });

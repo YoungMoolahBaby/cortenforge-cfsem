@@ -31,8 +31,9 @@ tray are printable. Main 4's cart side done in simulation. Pad and receiver star
 the Qi A11 pad and receiver example 1 (inductances against the spec: +11% / +17% / +47% with
 ferrite as ideal planes, an upper bound) and maps the sweet spot (k within 90% only 6 mm from
 centre); `layout` widens it on a free-space efficiency score: one 80 mm coil covers 4x the A11's
-area, three overlapping round coils 4.7x (2x Qi A6), with sim-opt's RicherSA matching or beating a
-refined grid. Next: a printable pad former.
+area, three overlapping round coils 4.6x (2x Qi A6), with sim-opt's annealers matching or beating a
+refined grid. `former` prints it: a base and lid at the A11's winding pitch (1484 mm^2, -3.6% for
+slack between turns), both printable. Main 4 done in simulation.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 

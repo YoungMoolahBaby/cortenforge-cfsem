@@ -22,6 +22,9 @@ Run: `cargo run --release -p wireless-charging -- <mode>`.
   against the spec (ferrite as iron planes), the coupling map and the sweet spot (about 33 s).
 - `layout`: widening the sweet spot: a ring table checked against direct sums, the A11 and A6
   benchmarks, grids of one- and three-coil pads, and sim-opt / sim-rl against them (about 75 s).
+- `former`: the three-coil pad made exact and printable: the optimum and the A11-pitch variant
+  scored without the table, then the base and lid (cf-design), checked and written to
+  `out/parts/*.stl` (about 25 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -249,8 +252,8 @@ The score: the area of receiver centres (receiver example 1, long side along x, 
 |x| <= 40 mm and |y| <= 24 mm, 2 mm steps) where the link's best efficiency (both sides tuned,
 best load, 100 kHz, free space) is at least 85%. A pad is one or three round single-layer coils
 of the A11 Litz (pitch at least 1.15 mm); a three-coil pad is an overlapping row like Qi's A6: two
-coils in the lower layer, one on top between them, within |x| <= 52 mm, the pad driving whichever
-couples best.
+coils in the lower layer, one on top between them, within |x| <= 52 mm, the lower pair's outer
+turns at least a wire (1.15 mm) apart, the pad driving whichever couples best.
 
 Every round coil is a sum of rings, so the receiver's coupling to one ring is tabulated over
 radius (3-40 mm, 1 mm steps), offset (2 mm steps) and the two layer heights: 73,416 rings in
@@ -274,14 +277,17 @@ mutuals.
 | Qi A11 (one round coil, r 10.8-21.4 mm, 10 turns) | 332 mm^2 | 3.74 uH | 0.464 | 59 |
 | Qi A6 (three overlapping rectangular coils) | 788 mm^2 | 7.36 uH | 0.396 | 68 |
 | best one coil: r 14.7-40.0 mm, 23 turns | 1316 mm^2 | 29.67 uH | 0.380 | 121 |
-| best three coils: r 6.4-26.0 mm, 18 turns, 26.0 mm apart | 1548 mm^2 | 9.13 uH | 0.482 | 80 |
+| best three coils: r 6.2-25.7 mm, 18 turns, 26.3 mm apart | 1540 mm^2 | 8.87 uH | 0.482 | 79 |
 
+- The first run let the lower pair's outer turns meet (their centrelines 2 r_out apart, so the
+  wires overlapped by a wire); with them a wire apart the best array went from 1548 to 1540 mm^2.
+  Found while drawing the former (stage 7).
 - Both winners pack turns at the least pitch (1.15 mm) out to the edge they are allowed. A
   bigger coil couples less at the centre but more evenly, and its longer copper buys Q faster
   than it loses k: one 80 mm coil already covers four times the A11's area.
-- Three overlapping coils, each about the A11's size but with turns down to 6.4 mm, beat the big
-  coil by 18% at a third of its inductance (9.13 against 29.67 uH, close to the Qi coils' 6-12
-  uH, so a Qi-class inverter can drive it; the big coil would need its own). They need coil
+- Three overlapping coils, each about the A11's size but with turns down to 6.2 mm, beat the big
+  coil by 17% at under a third of its inductance (8.87 against 29.67 uH, close to the Qi coils'
+  6-12 uH, so a Qi-class inverter can drive it; the big coil would need its own). They need coil
   selection, as A6 does.
 - They also beat A6 by about 2x on this score. Not a verdict on A6: the score is free space
   (A6 is designed with ferrite, which raises Q and so the efficiency everywhere), one receiver
@@ -294,20 +300,56 @@ three seeds, 400 and 1600 evaluations (0.4-4 s a run):
 
 | | One coil (3 parameters) | Three coils (4 parameters) |
 |---|---|---|
-| reference | refined grid 1301.9 | refined grid 1539.7 |
-| sim-opt RicherSA, 1600 | 1301.9 / 1301.4 / 1301.9 | 1549.2 / 1554.2 / 1554.1 |
-| sim-opt SA, 1600 | 1301.1 / 1299.8 / 1301.5 | 1550.1 / 35.8 / 1550.7 |
-| sim-rl CEM, 1600 | 1267.8 / 1260.9 / 1280.4 | 1486.7 / 1510.7 / 1507.3 |
+| reference | refined grid 1301.9 | refined grid 1518.6 |
+| sim-opt RicherSA, 1600 | 1301.9 / 1301.4 / 1301.9 | 1522.5 / 35.6 / 1520.2 |
+| sim-opt SA, 1600 | 1301.1 / 1299.8 / 1301.5 | 1520.1 / 1522.1 / 1523.0 |
+| sim-rl CEM, 1600 | 1267.8 / 1260.9 / 1280.4 | 1488.0 / 1514.6 / 1508.4 |
 
 - The reference: every design on a 1 mm grid (7,064 single coils in 0.5 s; 10,350 arrays in
   1.2 s), then a 0.1 mm local refinement round the best. The first comparison used the 1 mm grid
   alone, and RicherSA and SA beat it (1316 vs 1276 mm^2): the grid was too coarse, not the
   optimizers too good.
-- RicherSA hits the refined grid's optimum for one coil and goes past it for three (+0.9%), in a
-  different place (r_in 6.4 mm, outside the refinement's +-1.5 mm window): the array has more than
-  one good design. SA is as good when it works, but one seed in three stuck at 35.8 for the array
-  at both budgets. CEM ends 1.7-3.4% below the refined grid at 1600 evaluations, and below the
-  best it evaluated.
+- RicherSA hits the refined grid's optimum for one coil; for the array RicherSA and SA go just
+  past it (+0.3%) in a different place (r_in 6.2 mm against the refinement's 7.3 mm): the array
+  has more than one good design. Both annealers can stick: for the array one seed in three of
+  RicherSA ended at 35.6 at both budgets (SA, at 400 evaluations, one at 48.3; before the
+  constraint fix it was SA's seed that stuck), in a region the decoder scores near zero. CEM
+  ends 0.3-3.1% below the refined grid at 1600 evaluations, and below the best it evaluated.
+
+## The pad former (`former`, 2026-11-02)
+
+The three-coil pad from `layout`, made exact and printable (cf-design), scored again without the
+table:
+
+| | Coils | Area with efficiency >= 85% | L | Centred k |
+|---|---|---|---|---|
+| as optimized | r 6.15-25.70 mm, 18 turns at 1.15 mm, 26.30 mm apart | 1540 mm^2 | 8.86 uH | 0.482 |
+| chosen: Qi A11's pitch | r 5.67-25.70 mm, 18 turns at 1.178 mm, 26.30 mm apart | 1484 mm^2 | 8.54 uH | 0.482 |
+
+- At the optimum the pitch equals the Litz's 1.15 mm, so the 18 turns would have 0.1 mm of play
+  in all; that can't be wound reliably. The A11 winds the same Litz at 1.178 mm (0.028 mm between
+  turns), for 3.6% less area (2.2% of the soft score). Chosen on that, not by a rule: a 1.2 mm
+  pitch would cost 4.7% (1468 mm^2).
+
+Two parts, 115.3 x 62.7 mm, pinned with two 2 mm dowels; STL in `out/parts/`:
+
+| Part | Printed | Volume (solid PLA) | Check |
+|---|---|---|---|
+| `pad_base` (2.2 mm) | flat, channels up | 10.8 cm^3 (13 g) | printable, watertight |
+| `pad_lid` (3.4 mm) | upside down, interface on the bed | 22.0 cm^3 (27 g) | printable, watertight |
+
+- Base: the two lower coils' channels (r 5.03-26.34 mm, 1.2 mm deep, 21.30 mm wide for 18 turns
+  of 1.15 mm), a 1.0 mm floor (a ferrite sheet goes under it, 1.0 mm from the lower coils, as Qi
+  A6 asks), and lead holes under each coil's inner and outer turns, plus the top coil's two.
+- Lid: the top coil's channel on its underside; its inner lead runs out over the turns in a
+  1.4 x 1.2 mm slot to a hole past the coil, so no other lead crosses a winding. Interface surface
+  2.25 mm over the top coil (Qi: 2 +0.5 / -0.25 mm; the model assumed 2.0).
+- Probes on the channel floor and both walls, the lid's channel and slot ceilings and the
+  interface: 0.000 mm.
+- The first base failed the printability check with a real flaw: where the two lower channels
+  nearly meet, the wall between them thins to a cusp (under 1 mm for |y| < 5.2 mm, zero at the
+  centre). The channels now join over |y| < 5.5 mm (the coils' outer turns pass 0.05 mm apart
+  there anyway).
 
 ## Plan
 
@@ -322,6 +364,7 @@ three seeds, 400 and 1600 evaluations (0.4-4 s a run):
 5. Pad and receiver from the Qi reference designs (done): inductances against the spec, the
    coupling map and the sweet spot.
 6. Pad layout (done): one 80 mm coil covers 4x the A11's area, three overlapping round coils
-   4.7x (2x Qi A6), on a free-space efficiency score; sim-opt's RicherSA matches or beats a
+   4.6x (2x Qi A6), on a free-space efficiency score; sim-opt's annealers match or beat a
    refined grid.
-7. A printable pad former for the chosen layout.
+7. A printable pad former (done): two parts, base and lid, for the three-coil pad at the A11's
+   pitch (1484 mm^2), printable and checked.
