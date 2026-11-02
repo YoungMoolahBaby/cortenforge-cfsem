@@ -190,6 +190,12 @@ None yet.
   former 45 deg (all faces then at or under 45 deg, but resting on a flange rim, no bed
   contact), as cortenforge-play found for its parts. On the redesigned parts it keeps them as
   modelled.
+- **works** (2026-11-02): the maglev cart's deck and hull pass the FDM check as modelled, and a
+  constant cross-section printed on end (the rail hanger) is a reliable way to avoid overhangs.
+  The only remaining flags are marching-cubes-blunted apexes of diamond holes (about 0.4 mm wide,
+  3.6 and 4.3 mm^2 regions at the hole tops), the same pattern as the coil former's dowel tips; a
+  thin wall left by a mis-placed hole (0.25 mm) showed up as a non-manifold mesh, which the check
+  reported (maglev-train `parts`).
 - **API** (2026-11-02): `PrintValidation::summary()` gives counts only ("Not printable: 8215
   critical issue(s)"); grouping `issues` by type and reading `location` was needed to tell
   real overhangs from mesh artifacts.

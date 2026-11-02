@@ -63,6 +63,8 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
 - `motor`: the linear motor: cfsem's circular-to-linear mutual against the true midpoint,
   per-phase thrust, thrust by Lorentz force vs coenergy, the commutated thrust constant and
   ripple, copper loss (about 22 s).
+- `parts`: the landing-skid window from the force table, then the printable parts (cf-design),
+  checked and written to `out/parts/*.stl` (mm), and a mass budget (about 35 s).
 
 ## The model (`src/em.rs`)
 
@@ -236,6 +238,81 @@ magnets' equivalent loops.
   15 mm above the centre of mass). Copper loss with block switching (only the coils under the
   cart energized): 2.40 W/A^2, 0.129 N/W.
 
+## Parts and the parts list (`parts`, 2026-11-02)
+
+### Landing skids
+
+On power loss the magnets keep pulling, so the cart rises until skids on its deck touch the
+stator board. They must hold it far enough off that the coils can push it back off (the magnets
+pull harder the closer they are), yet not touch in normal running. Push-off current for an
+unloaded corner (the hardest case) from the force table:
+
+| Landed gap | 3.5 mm | 4.0 mm | 4.5 mm | 5.0 mm | 5.5 mm |
+|---|---|---|---|---|---|
+| Push-off current (limit 10 A) | 12.83 A | 10.73 A | 8.43 A | 5.87 A | 3.00 A |
+
+Push-off within 5 A needs a landed gap of 5.16 mm or more, but with 100 g off-centre a corner runs
+at 5.03 mm (`cart`): no room at that margin. Chosen: land 0.5 mm under the lowest running gap,
+4.53 mm (skids 3.03 mm tall over the deck; the board is 1.5 mm), which needs 8.27 A of the
+10 A to push off. Ways to widen the window: a centred or lighter payload (the off-centre load
+is what drives one corner down), or a bigger control coil.
+
+### Printed parts
+
+Modelled in cf-design (mm), meshed by marching cubes, welded, checked with the FDM default as
+printed (z up), written to `out/parts/`:
+
+| Part | Printed | Volume (solid PLA) | Check |
+|---|---|---|---|
+| `cart_deck` | flat, pockets up | 61.5 cm^3 (76 g) | printable |
+| `cart_hull` | open side up | 51.0 cm^3 (63 g) | printable |
+| `rail_hanger` (100 mm) | on end | 79.5 cm^3 (99 g) | 2 flags, see below |
+| `station_hanger` (100 mm) | on end | 88.5 cm^3 (110 g) | 2 flags, see below |
+
+- Deck: 140 x 80 x 6 mm, four 19.5 x 4 mm pockets for the magnet with its coil wound round it
+  (glued as one: the model has only 0.5 mm between magnet and coil, too thin for a printed wall),
+  a wire passage under each, four 8 mm gap-sensor holes beside the magnets towards the middle (no
+  room outboard; an outboard first try left a 0.25 mm wall and a non-manifold mesh), and four
+  3.03 mm skids inside the board's width. Probes: pocket floor, pocket wall and skid top at
+  0.000 mm.
+- Hull: an open tray (2.5 mm walls) for battery and electronics under the deck.
+- Hangers: a constant cross-section printed standing on end, so every wall is vertical: a top
+  plate over the 60 x 3 mm steel bar, tabs under the stator board's edges, side lips 2 mm off the
+  cart's sides, two mounting holes; the station version adds ledges where the cart rests at the
+  6.5 mm lift-off gap. The mounting holes are diamonds (round holes running sideways would have
+  flat tops); the two remaining flags are the diamonds' apexes, which the mesher blunts into
+  strips about 0.4 mm wide (located at the hole tops), not a real overhang.
+- Mass: deck and hull 140 g solid, about 56 g at a typical 40% effective density; magnets
+  4 x 3.4 g; coil copper 4 x 2.9 g. With the 200 g nominal payload that leaves about 220 g of the
+  model's 500 g for battery, electronics, sensors and wiring.
+
+### Parts list (demonstrator, one cart, 1.4 m of track)
+
+| Item | Qty | Spec | From |
+|---|---|---|---|
+| NdFeB disc magnet | 4 | N42, 12 mm x 4 mm, axially magnetized (Br ~1.3 T) | `stray` |
+| Control coil | 4 | 80 turns AWG 28 enamelled copper, 8 layers x 10, wound on a 13.0 mm mandrel and bonded; ~4 m and 0.86 ohm each | `corner` |
+| Gap sensor | 4 | 3-8 mm range, noise about 1 um at 2 kHz (an inductive / eddy-current displacement sensor class) | `corner` noise sweep |
+| Coil driver | 4 | H-bridge, +-12 V, 10 A peak, current sensing for a 1 kHz current loop | `corner` |
+| Controller | 1 | 2 kHz gap loop (modal), current loops, zero-power loops | `cart` |
+| Battery | 1 | 12 V class; about 0.2-0.4 W average (coils) plus electronics, 10 A peaks | `cart` |
+| Steel flat bar | 1.4 m | low-carbon, 60 mm x 3 mm or thicker | `stray` (0.55 mm carries the flux; the image model wants it thick) |
+| Stator board | 1.4 m | three-phase flat coils, pitch 100/7 mm, 14.3 x 24 mm, 20 turns, two tracks 50 mm apart with phases reversed, 1.5 mm thick | `motor` |
+| Motor driver | 1 | three-phase, block-switched sections under the cart, about 1 A per phase, position feedback for commutation | `motor`, `cart` |
+| Printed parts | | `cart_deck`, `cart_hull`, 14 x `rail_hanger`, 1-2 x `station_hanger` | `parts` |
+| Skid pads | 4 | low-friction (PTFE) on the 3.03 mm skids | `parts` |
+
+### Open items
+
+- Sideways guidance. A flat rail gives no sideways restoring force, so the cart would drift to a
+  lip and rub, which breaks "no contact". Real EMS gets lateral force from the rail's edges with
+  iron magnets (not modelable in cfsem); options here are side magnets or lateral control.
+- The stator board was modelled with AWG 24-equivalent copper (0.13 ohm a coil); printed copper
+  will be thinner, so recompute the losses for a real board.
+- Power to the cart: a battery today; the wireless-charging project could feed it through the
+  track.
+- Hospital materials: PETG or polycarbonate and sealed seams for cleaning; not yet chosen.
+
 ## Plan
 
 1. Forces, sizing and stray field (done for the demonstrator).
@@ -245,4 +322,4 @@ magnets' equivalent loops.
    station.
 4. Linear-motor propulsion (done): a fine-pitch flat stator pushing on the lift magnets, in the
    cart trip.
-5. Printable track and cart parts, a parts list.
+5. Printable parts and a parts list (done). Open items listed above.
