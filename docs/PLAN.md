@@ -18,6 +18,9 @@ a linear motor that pushes on the lift magnets (`motor`; 0.310 N/A, 0.10% ripple
 the printable cart and track parts, the landing-skid trade-off and a parts list. Main 2 done in
 simulation, sideways guidance included (a second coil layer; a 0.3 N shove at the cart's end stays
 0.64 mm off the 2 mm lips); open items in its README.
+wireless-charging started (2026-11-02), to power the maglev cart from the track: `check` validates
+cfsem's straight-filament inductance and field (9 of 9); cfsem's linear self-inductance counts the
+wire's internal inductance twice (+5% on a single ring, corrected). Next: track loop and pickup.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 

@@ -112,3 +112,22 @@ setup, works) and the date, with file:line in the crate source
   rows) gives sideways force by Lorentz force that agrees with the coenergy route
   (true-midpoint flux) to 7e-5 at 0.25 mm pieces, and side effects of 1e-16 where symmetry says
   zero (maglev-train `guide`).
+- bug, 2026-11-02: linear-filament self-inductance counts the wire's internal inductance twice
+  over. `inductance_piecewise_linear_filaments` (physics/linear_filament.rs:74) integrates A.dl
+  at points on the wire axis (:22-48), where the in-wire term
+  `blend = 1/2 (1 - frac^2)` (:1293) is at its peak: mu0/4pi per metre. The energy (and DC)
+  value is the cross-section average, mu0/8pi per metre. The docs say "uniform current
+  distribution; low frequency", so the result should be the DC one. A 50 mm ring of 1 mm wire
+  (1024-gon) gives 325.76 nH against 310.06 nH from Wien's formula, which cfsem's own Python
+  package ships (`self_inductance_circular_ring_wien`): +5.1%, and the excess (15.705 nH) is
+  mu0/8pi x length (15.708 nH). A 100 x 50 mm rectangle: +5.6% against Grover's partial
+  inductances. cfsem's own test (test/test_electromagnetics.py:247) compares a 13-turn coil
+  with Lyle at 5% tolerance, where turn-to-turn terms swamp it. Workaround: subtract
+  mu0/8pi x length; that matches Wien to 1.1e-5 and Grover to 7.6e-4. Mutual terms are
+  unaffected (wireless-charging `check`).
+- works, 2026-11-02: the linear-filament kernels otherwise check out (wireless-charging
+  `check`, 9 of 9): mutual inductance of two offset squares against an independent
+  Gauss-Legendre Neumann integral to 2e-10, both orders; polygons converge on
+  `flux_circular_filament` at second order (1024-gons: 5.5e-6); `flux_density_linear_filament`
+  matches the Biot-Savart finite-wire closed form to 1e-15; loop images satisfy the
+  conductor and iron boundary conditions to 1e-16.
