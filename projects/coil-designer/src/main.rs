@@ -4,6 +4,7 @@
 
 mod check;
 mod coil;
+mod optimize;
 mod pack;
 mod refs;
 
@@ -16,8 +17,9 @@ fn main() {
             }
         }
         "pack" => pack::run(),
+        "optimize" => optimize::run(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, pack");
+            eprintln!("unknown mode {other:?}; modes: check, pack, optimize");
             std::process::exit(2);
         }
     }

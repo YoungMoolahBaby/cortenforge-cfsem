@@ -206,11 +206,7 @@ pub type FieldFn<'a> = dyn Fn(&[f64], &[f64]) -> (Vec<f64>, Vec<f64>) + 'a;
 /// The deviation is subharmonic in the bore, so its maximum over a ball sits on the surface,
 /// and the surface max grows with the radius: bisection on the surface max is enough.
 /// `field` maps (r, z) points to (Br, Bz).
-pub fn uniform_radius(
-    field: &FieldFn,
-    eps: f64,
-    r_max: f64,
-) -> f64 {
+pub fn uniform_radius(field: &FieldFn, eps: f64, r_max: f64) -> f64 {
     let b0 = field(&[0.0], &[0.0]).1[0];
     let n_theta = 91;
     let dev = |rho: f64| -> f64 {
@@ -230,7 +226,7 @@ pub fn uniform_radius(
     if dev(hi) <= eps {
         return hi;
     }
-    for _ in 0..40 {
+    for _ in 0..24 {
         let mid = 0.5 * (lo + hi);
         if dev(mid) <= eps { lo = mid } else { hi = mid }
     }

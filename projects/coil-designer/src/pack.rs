@@ -6,7 +6,7 @@ use cfsem::physics::circular_filament::flux_density_circular_filament_par;
 use crate::coil::{Coil, Pack, Wire, uniform_radius};
 
 /// Field of ideal loops `(r, z, NI)` at points, through cfsem.
-fn thin_field(loops: &[(f64, f64, f64)], r: &[f64], z: &[f64]) -> (Vec<f64>, Vec<f64>) {
+pub fn thin_field(loops: &[(f64, f64, f64)], r: &[f64], z: &[f64]) -> (Vec<f64>, Vec<f64>) {
     let rf: Vec<f64> = loops.iter().map(|l| l.0).collect();
     let zf: Vec<f64> = loops.iter().map(|l| l.1).collect();
     let nif: Vec<f64> = loops.iter().map(|l| l.2).collect();

@@ -1,8 +1,8 @@
 # Plan
 
 Status: coil-designer started (2026-11-02): `check` validates cfsem and the turn-by-turn coil model
-(58 of 58 pass); `pack` sizes a real Helmholtz pair. Next: optimization with sim-opt, then a
-printable former (see its README).
+(58 of 58 pass); `pack` sizes a real Helmholtz pair; `optimize` compares sim-opt/sim-rl with a
+grid. Next: a printable former (see its README).
 The other projects are a README each until they start.
 
 ## Order
