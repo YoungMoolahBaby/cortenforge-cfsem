@@ -142,9 +142,13 @@ at 90 deg, which would need support inside the winding channels. Redesign, two p
 
 - **Half** (print 2): tube (bore 84.44 mm, wall 2.5 mm), winding floor flange (113.56 mm) with a
   40 deg support cone under it, and a bed collar with three blind dowel holes for 1.75 mm
-  filament, pointed so their ends need no bridge. Printed standing on its mid-plane face; the
-  halves butt there.
-- **Washer** (print 2): flat ring that slides over the tube end to close the channel.
+  filament, pointed so their ends need no bridge. A 1.2 mm radial slot through the floor flange
+  and cone (at 60 deg, between dowels) lets the start lead, which begins on the innermost layer
+  against the floor, drop out without crossing the winding. Printed standing on its mid-plane
+  face; the halves butt there.
+- **Washer** (print 2): flat ring that slides over the tube end to close the channel, with a
+  1.2 mm notch at its rim for the finish lead; it turns freely, so the notch lines up with
+  wherever the winding ends.
 - The winding rests on the floor, so the spacing is 2 x (floor + pack/2). The floor is snapped to
   0.1 mm layers: 22.300 mm, giving 49.527 mm (-0.015 mm from the design, inside the window).
   At 0.2 mm layers a slicer would have put it at 22.4, +0.185 mm on the spacing, past the whole
@@ -155,10 +159,12 @@ at 90 deg, which would need support inside the winding channels. Redesign, two p
   "ready for printing". The half's remaining flags are 0.0 mm^2 slivers on the support cone at
   mesh-grid planes (details in `docs/CORTENFORGE.md`); the orientation search keeps both parts as
   modelled.
-- Not yet modelled: wire entry and exit slots, a way to fix the washers (glue for now).
+- SDF probes confirm the slots: +0.60 mm (open, half the slot width) on their centre lines,
+  solid one slot width aside, in the flange, the cone and the washer.
+- Not yet modelled: a way to fix the washers (glue for now); the leads are not in the field
+  model (twist them).
 
 ## Next
 
-1. Wire slots in the floor flange; print, wind and measure B0 and the field profile against the
-   model (a hardware step).
+1. Print, wind and measure B0 and the field profile against the model (a hardware step).
 2. A Maxwell gradient pair through the same pipeline.

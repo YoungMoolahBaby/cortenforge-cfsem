@@ -251,12 +251,36 @@ fn former_half(d: &Dims) -> Solid {
             .translate(at + Vector3::new(0.0, 0.0, DOWEL.2 + CONE_RISE * DOWEL.1 * 1.5));
         body = body.subtract(shaft.union(tip));
     }
-    body
+    // Start-lead slot: layer winding starts on the innermost layer against the floor, so the
+    // lead drops through a radial slot in the floor flange and support cone and leaves outward
+    // without crossing the winding. Vertical walls and an up-facing bottom: no support needed.
+    // It sits between two dowel holes.
+    let slot = radial_slot(d.r_in, d.r_flange + 2.0, cone_bottom, d.floor + 1.0).rotate(
+        nalgebra::UnitQuaternion::from_axis_angle(&Vector3::z_axis(), PI / DOWEL.0 as f64),
+    );
+    body.subtract(slot)
+}
+
+/// Wire slot width (mm): 0.704 mm wire over enamel with room to spare at FDM accuracy.
+const SLOT_W: f64 = 1.2;
+
+/// A radial slot along +x, SLOT_W wide, from radius r0 to r1 and height z0 to z1.
+fn radial_slot(r0: f64, r1: f64, z0: f64, z1: f64) -> Solid {
+    Solid::cuboid(Vector3::new(0.5 * (r1 - r0), 0.5 * SLOT_W, 0.5 * (z1 - z0)))
+        .translate(Vector3::new(0.5 * (r0 + r1), 0.0, 0.5 * (z0 + z1)))
 }
 
 /// The washer that closes a channel: printed flat, slid over the tube end onto the winding.
+/// A notch at its rim lets the finish lead (on the outer layer) out; the washer turns freely,
+/// so the notch can be lined up with wherever the winding ends.
 fn former_washer(d: &Dims) -> Solid {
-    ring(d.r_in + WASHER_FIT, d.r_flange, 0.0, WALL)
+    let outer_layer = d.r_flange - RIM;
+    ring(d.r_in + WASHER_FIT, d.r_flange, 0.0, WALL).subtract(radial_slot(
+        outer_layer - 0.5,
+        d.r_flange + 2.0,
+        -1.0,
+        WALL + 1.0,
+    ))
 }
 
 pub fn run() {
@@ -424,7 +448,26 @@ fn build_former(per_layer: usize, spacing: f64, cell: f64, mesher: &str) {
         probe(d.r_bore, 0.5 * (d.floor + d.channel_top)),
         probe(d.r_bore + 1.0, 0.0)
     );
-    for (name, solid, count) in [("half", half, 2), ("washer", former_washer(&d), 2)] {
+    // The lead slots: open (> 0) on their centre line, solid (< 0) beside them.
+    let washer = former_washer(&d);
+    let at = |s: &Solid, deg: f64, r: f64, z: f64| {
+        let a = deg.to_radians();
+        s.evaluate(&nalgebra::Point3::new(r * a.cos(), r * a.sin(), z))
+    };
+    let side = (SLOT_W / (d.r_in + 3.0)).to_degrees(); // one slot width round from the centre
+    let slot_deg = 180.0 / DOWEL.0 as f64;
+    println!(
+        "  start-lead slot at {slot_deg:.0} deg, {SLOT_W} mm wide: in the flange {:+.2} (beside it \
+         {:+.2}), in the cone {:+.2} (beside it {:+.2}); finish-lead notch in the washer {:+.2} \
+         (beside it {:+.2})",
+        at(&half, slot_deg, d.r_in + 3.0, d.floor - 1.0),
+        at(&half, slot_deg + side, d.r_in + 3.0, d.floor - 1.0),
+        at(&half, slot_deg, d.r_in + 1.0, d.floor - WALL - 2.0),
+        at(&half, slot_deg + side, d.r_in + 1.0, d.floor - WALL - 2.0),
+        at(&washer, 0.0, d.r_flange - 1.0, 0.5 * WALL),
+        at(&washer, side, d.r_flange - 1.0, 0.5 * WALL)
+    );
+    for (name, solid, count) in [("half", half, 2), ("washer", washer, 2)] {
         part(&out, name, &solid, count, cell, mesher);
     }
 }
