@@ -93,7 +93,11 @@ fn jig() -> Vec<JigPose> {
 }
 
 /// Generic Levenberg-Marquardt, central-difference Jacobian with per-parameter steps.
-fn lm(f: &dyn Fn(&DVector<f64>) -> DVector<f64>, x0: DVector<f64>, h: &[f64]) -> DVector<f64> {
+pub(crate) fn lm(
+    f: &dyn Fn(&DVector<f64>) -> DVector<f64>,
+    x0: DVector<f64>,
+    h: &[f64],
+) -> DVector<f64> {
     let mut x = x0;
     let mut r = f(&x);
     let mut cost = r.norm_squared();

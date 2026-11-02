@@ -6,6 +6,7 @@ mod calib;
 mod check;
 mod layout;
 mod magnet;
+mod path;
 mod solve;
 mod tracker;
 
@@ -20,8 +21,9 @@ fn main() {
         "solve" => solve::run(),
         "layout" => layout::run(),
         "calib" => calib::run(),
+        "path" => path::run(),
         m => {
-            eprintln!("unknown mode {m}; modes: check, solve, layout, calib");
+            eprintln!("unknown mode {m}; modes: check, solve, layout, calib, path");
             std::process::exit(2);
         }
     }

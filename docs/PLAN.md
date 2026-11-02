@@ -42,7 +42,9 @@ unknowns) exactly, from a cold start in 7 ms, and reaches the Cramer-Rao bound w
 MMC5983MA board (under 1 mm to 120 mm) and shows calibration (gains to ~0.1%, positions under
 0.1 mm), not sensor noise, limits a real board; `calib` recovers a board's 240 unknowns from a magnet
 in a jig, and a joint solve (bundle adjustment) makes even a printed jig (0.2 mm, 0.5 deg) good to
-32-70 um. Next: tracking along a path.
+32-70 um; `path` tracks a moving magnet at the bound frame by frame, and a solver that models the
+motion removes the bias of reading sensors in turn (to 10 um at 200 mm/s). Simulation side done;
+next with hardware.
 Hardware later.
 The other projects are a README each until they start.
 

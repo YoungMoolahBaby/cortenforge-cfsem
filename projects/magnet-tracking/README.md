@@ -18,6 +18,8 @@ Run: `cargo run --release -p magnet-tracking -- <mode>`.
   its bound, 32 layouts over the workspace, and calibration errors (about 3 s).
 - `calib`: calibrating a board in simulation: exact recovery, then 40 random boards calibrated
   with jigs of several tolerances, per sensor and by a joint solve, and tracked (about 30 s).
+- `path`: tracking a magnet round a circle at the sensor's four rates, all sensors at once or in
+  turn, with static, predicted-motion and fitted-motion solvers (about 4 s).
 
 ## Checks (`check`, 2026-11-02)
 
@@ -212,6 +214,65 @@ position bias, median / 95th percentile, and the noise floor's bound:
   convergence along the coupled directions. The joint solve converges in a few dozen steps
   (the whole run about 30 s).
 
+## Tracking along a path (`path`, 2026-11-02)
+
+The 4 x 4 MMC5983MA board at 30 mm, calibrated (noise only), the magnet's moment known (stage 2:
+fitting it costs 2.5-4.5x in height). The magnet runs once round a 30 mm circle, its axis along its
+travel and 20 deg up, like a capsule. The sensor's four rate settings (MEMSIC MMC5983MA Rev. A):
+
+| Setting | Noise | Output rate |
+|---|---|---|
+| BW = 00 | 0.4 mG (0.04 uT) | 50 Hz |
+| BW = 01 | 0.6 mG (0.06 uT) | 100 Hz |
+| BW = 10 | 0.8 mG (0.08 uT) | 225 Hz |
+| BW = 11 | 1.2 mG (0.12 uT) | 580 Hz |
+
+(The same table gives alignment error 1-3 deg and sensitivity accuracy 5%: stage 4's assumed
+1 deg and 1% were on the mild side, which calibration takes either way.) Each frame is solved from
+the last one's pose; the error is the RMS over the trip, against the solver's own Cramer-Rao bound
+along it.
+
+All sensors read at once, 50 mm/s:
+
+| Height | 50 Hz | 100 Hz | 225 Hz | 580 Hz |
+|---|---|---|---|---|
+| 40 mm | 4.8 um (bound 4.6) | 6.9 (6.9) | 9.3 (9.3) | 13.9 (13.9) |
+| 80 mm | 54.0 um (55.0) | 81.6 (82.5) | 108 (110) | 166 (165) |
+
+- Frame by frame, warm-started, the solver reaches the bound at every rate and height; about
+  80-100 us a frame on this PC. Faster rates are noisier per frame (the bound grows with the
+  noise), so the right rate is the slowest the motion allows; frames can also be averaged.
+
+Sensors read one after another across the frame (a single bus, each in turn), 40 mm up: each sees
+the magnet where it was at its own moment. Three solvers:
+
+- static: one pose for all sensors (8 unknowns);
+- predicted motion: the same 8, each sensor's pose moved by the motion averaged over the last
+  frames (half weight on the newest);
+- fitted motion: velocity and axis rate fitted too (13 unknowns), each sensor at its own time.
+
+| Rate, speed (motion a frame) | Static | Predicted motion | Fitted motion |
+|---|---|---|---|
+| 50 Hz, 10 mm/s (0.20 mm) | 50.1 um (bound 4.6) | 4.8 um (4.6) | 10.0 um (9.8) |
+| 50 Hz, 50 mm/s (1.00 mm) | 247 um (4.6) | 15.3 um (4.6) | 9.4 um (9.8) |
+| 50 Hz, 200 mm/s (4.00 mm) | 960 um (4.6); 18 of 42 frames over 1 mm | 208 um (4.6) | 10.0 um (9.7) |
+| 225 Hz, 10 mm/s (0.04 mm) | 14.3 um (9.3) | 9.3 um (9.3) | 19.4 um (19.6) |
+| 225 Hz, 50 mm/s (0.22 mm) | 55.9 um (9.3) | 9.4 um (9.3) | 19.6 um (19.6) |
+| 225 Hz, 200 mm/s (0.89 mm) | 220 um (9.3) | 15.1 um (9.3) | 19.5 um (19.6) |
+
+- Read in turn, a static solver is biased by about a quarter of the motion in a frame: 50 um at
+  0.2 mm a frame, 0.96 mm at 4 mm.
+- Fitted motion removes the bias at every speed and reaches its own bound, which is about 2.1x the
+  static one (five more unknowns from the same 48 readings); roughly 150-210 us a frame (timings
+  vary a little between runs).
+- Predicted motion keeps the static bound while the motion a frame is small (up to about
+  0.25 mm here) and costs nothing extra; it lags when the path turns a lot between frames (at
+  200 mm/s round a 30 mm circle the direction turns 7.6 deg a frame).
+- So: trigger every sensor together in hardware (the MMC5983MA has SPI; a chip select each, or a
+  shared start) and the plain solver is at the bound; read in turn, use predicted motion for slow
+  movement and fitted motion for fast. No tracking was lost: apart from the static solver at
+  200 mm/s, no frame was off by more than 330 um.
+
 ## Plan
 
 1. Forward models (done).
@@ -221,4 +282,8 @@ position bias, median / 95th percentile, and the noise floor's bound:
    board at 30 mm stays under 1 mm to 120 mm; calibration, not noise, limits a real board.
 4. Calibration (done): 15 unknowns a sensor from a magnet in a jig; with a perfect jig, under the
    noise floor; a joint solve (bundle adjustment) makes a printed jig good to 32-70 um.
-5. Tracking a moving magnet along a path (warm starts, speed).
+5. Tracking along a path (done): at the bound frame by frame; sensors read in turn need motion
+   in the solver (predicted for slow movement, fitted for fast) or a shared trigger.
+
+When boards arrive: build the 4 x 4 MMC5983MA board, calibrate it in a printed jig with the joint
+solve, and compare tracked poses with a known path.
