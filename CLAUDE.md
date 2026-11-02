@@ -3,7 +3,8 @@
 Example projects joining CortenForge with cfsem. Read first:
 - `README.md`: the projects.
 - `docs/PLAN.md`: order, status, how the projects connect. **Start here.**
-- `docs/FINDINGS.md`: end-user friction log for both crates. Add to it while building.
+- `docs/CORTENFORGE.md`: end-user findings for CortenForge (improvement notes). Add to it while building.
+- `docs/CFSEM.md`: end-user findings for cfsem. Add to it while building.
 
 ## Rules
 
@@ -12,8 +13,8 @@ Example projects joining CortenForge with cfsem. Read first:
 - CortenForge and cfsem are the focus; other crates only render, display and wire things up.
 - Check physics against known results (textbook formulas, cfsem's own tests) before building on it.
   Every number in docs comes from a real run.
-- Log friction in `docs/FINDINGS.md` under its crate: type (bug, docs, API, perf, setup, works),
-  date, file:line.
+- Log friction in `docs/CORTENFORGE.md` (CortenForge, under its sub-crate) or `docs/CFSEM.md`
+  (cfsem): type (bug, docs, API, perf, setup, works), date, file:line.
 
 ## Build notes
 
