@@ -48,3 +48,19 @@ setup, works) and the date, with file:line in the crate source
   `vector_potential_circular_filament_finite_thickness_scalar_near`), so a 4 x 16 Gauss grid
   averages it exactly. Reading the source made that quadrature choice easy; the docstring could
   say it.
+- works, 2026-11-02: the Grad-Shafranov operators check out (fusion-visualizer `check`, 16 of
+  16): `gs_operator_order2` / `_order4` converge at 2.00 / 4.00 on a smooth test function, and
+  both reproduce degree-4 polynomials, including a Solov'ev equilibrium solved as a fixed-boundary
+  problem, to rounding (the 2nd-order one is in flux form, so it is exact there too). A coil's
+  flux solved on a 161 x 161 grid matches `flux_circular_filament` to 4e-6. B from Psi converges
+  to `flux_density_circular_filament` at order 4.17, and Delta* of cfsem's vacuum flux is zero to
+  3.9e-8: flux and field conventions agree.
+- API, 2026-11-02: the Rust crate stops at the operator. The solver (`flux_solver`, a scipy
+  sparse LU), the 4th-order gradient and B-from-Psi live only in Python (cfsem/flux_solver.py:40,
+  107, 144). A Rust user brings a sparse LU (faer here, already in the tree via CortenForge) and
+  writes the gradient: about 150 lines in fusion-visualizer src/gs.rs.
+- docs, 2026-11-02: the Rust operator docs (physics/gradshafranov.rs:44-61, 113-147) don't say
+  how to use it: that Psi is total flux (2 pi R A_phi, Wb), so the right side is
+  -2 pi mu0 R J_phi; that node (i, j) is row i * nz + j; or that boundary rows are identity rows
+  taking the boundary Psi. The first is in the Python docstring (flux_solver.py:149), the other
+  two only in the source.
