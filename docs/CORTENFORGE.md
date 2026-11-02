@@ -27,6 +27,14 @@ None yet.
 - **works** (2026-11-02): builds alongside cfsem 14 in one workspace, no
   dependency conflicts.
 
+### `sim-opt`
+
+- **API** (2026-11-02): the optimizers (`Sa`, `RicherSa`, `Pt`) only run through
+  sim-ml-chassis's `Algorithm::train` on a `VecEnv`, and a `VecEnv` is built from a sim-core
+  `Model` (sim-ml-chassis vec_env.rs:91, 118). There is no black-box `minimize(f, x0)` for
+  design parameters, so a static problem like coil spacing has to be dressed up as a one-step
+  MuJoCo episode. From the source; the coil-designer optimizer step will try it.
+
 ### Platform
 
 None yet.
