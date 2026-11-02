@@ -9,6 +9,9 @@ conventions (16 of 16); a free-boundary solver matches Shafranov's vertical fiel
 a/R0 0.1) and its plasma shape follows the PF currents; field lines traced through 16 TF coils
 lie on nested flux surfaces with q matching the equilibrium; coils, vessel and flux surfaces
 export as checked CortenForge meshes. Warm-up 2 done; next in the plan: magnet-tracking.
+maglev-train started (2026-11-02), as an ultra-clean hybrid-EMS hospital delivery cart: `check`
+validates the force and inductance model (16 of 16) and shows why hybrid (permanent magnets
+carry the load, coils stabilize). magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
 ## Order
