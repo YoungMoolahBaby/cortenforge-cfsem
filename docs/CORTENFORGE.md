@@ -106,6 +106,25 @@ None yet.
 - **API** (2026-11-02): no tube or annulus primitive, and `Solid::cylinder` panics on radius 0
   (solid/primitives.rs:58), so a helper built on subtract needs a special case at r = 0.
   `Solid::cone` opens downward from its apex (:153); an upward support cone needs a rotation.
+- **API, recommendation** (2026-11-02): add a native revolve, e.g. `Solid::revolve(profile)` for
+  a closed (r, z) profile (a 2D SDF or a polyline) swept about Z. In an SDF kernel it is one of
+  the simplest operations (evaluate the profile at (sqrt(x^2 + y^2), z); exact wherever the
+  profile's SDF is) and it composes with the CSG, shell, meshing and printability tools already
+  here. Most parts in this repo were solids of revolution and each needed a workaround: the coil
+  former (cylinder-minus-cylinder rings and a flipped, clipped cone for a 40 deg support), the
+  tokamak's PF rings (the same), the vessel and flux surfaces (hand-built meshes, since their
+  profiles are curves). Bobbins, pulleys, nozzles, flanges and spools are the same class.
+  What exists today:
+  - `Solid::loft(stations)` (solid/primitives.rs:267-281) is a partial revolve: a radius r(z)
+    swept about Z. It is always solid to the axis (no bore, so no ring, torus or vessel), its
+    radius is Catmull-Rom smoothed between stations (steps round off), and its SDF is approximate
+    where the radius changes. Its docs don't present it as a revolve.
+  - `Solid::user_fn` (solid/ops.rs:499-516) can carry a hand-written revolve, and it works: the
+    vessel profile (160-point polygon) revolved this way meshes watertight and manifold at 10 mm
+    cells, its volume -6.7e-5 from Pappus (fusion-visualizer `mesh`). But it took 16.4 s, against
+    under a second for the same vessel as a hand-built revolved mesh: a `user_fn` has no interval
+    function, so the mesher cannot prune empty space, and each evaluation scans every profile
+    segment. A native revolve could supply both.
 
 ### `mesh` (printability, repair, io)
 
@@ -115,9 +134,11 @@ None yet.
   out watertight and manifold. `signed_volume` and `surface_area` make good checks: revolved
   surfaces match Pappus to exactly the faceting term (-1.00e-4 at 256 sides, (2 pi / n)^2 / 6),
   and the plasma surface mesh matches the equilibrium's own volume sum to 6.2e-4.
-- **API** (2026-11-02): no revolve or lathe for a profile, though fusion and many mechanical
-  parts are solids of revolution. `mesh-loft` sounds like it, but it joins two contact patches
-  into a bushing (mesh-loft lib.rs:1-30). A revolve was 40 lines over `IndexedMesh`.
+- **API** (2026-11-02): no mesh-level lathe (revolve a polyline into a mesh). `mesh-loft` sounds
+  like one, but it joins two contact patches into a bushing (mesh-loft lib.rs:1-30). For profiles
+  that already exist as polylines (contours, measured outlines) it is the natural tool, with exact
+  facets; here it was 40 lines over `IndexedMesh`. The solid-modelling side is under `cf-design`
+  above (recommendation: a native revolve).
 - **docs** (2026-11-02): volume and area live on cf-geometry's `IndexedMesh`
   (`signed_volume`, `surface_area`; cortenforge-geometry mesh.rs:202, 255), not in `mesh-measure`,
   the crate named for it (dimensions, OBB, cross-sections, distances only). Found by grepping.

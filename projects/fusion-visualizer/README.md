@@ -21,7 +21,7 @@ Trace field lines around a small tokamak or stellarator and show the plasma equi
 - `trace`: 16 TF coils checked against Ampere, then field lines of the shaped equilibrium traced
   through them (about 5 s); writes `out/poincare.svg`.
 - `mesh`: the tokamak as CortenForge meshes, each part checked; STL files (mm) and a cut-away
-  render in `out/mesh/` (about 20 s).
+  render in `out/mesh/` (about 35 s).
 
 ## Grad-Shafranov plumbing (`src/gs.rs`)
 
@@ -146,7 +146,10 @@ The shaped equilibrium (elongation 80 kA, triangularity +60 kA) with all its coi
   5 mm, welded: volumes -1.7e-4 to -2.3e-3 from pi (r1^2 - r0^2) h.
 - TF coils: one cf-design torus (40 mm conductor radius) rotated into its poloidal plane,
   meshed at 2.5 mm (-7.6e-4 from 2 pi^2 R r^2) and copied round 16 times.
-- All 14 parts watertight and manifold (mesh-repair `validate_mesh`). STL: `tf_coils`,
+- The vessel again as a cf-design solid through a hand-written revolve on `Solid::user_fn`
+  (cf-design has no revolve; see `docs/CORTENFORGE.md`): watertight, manifold, volume -6.7e-5
+  from Pappus at 10 mm cells, but 16.4 s to mesh.
+- All 15 parts watertight and manifold (mesh-repair `validate_mesh`). STL: `tf_coils`,
   `pf_coils`, `vessel`, `lcfs`, `surface_psin_*` in `out/mesh/`.
 - `out/mesh/tokamak.bmp`: a cut-away render from the meshes by a small z-buffer rasterizer
   (`src/render.rs`), inner surfaces cut back further so each shows.

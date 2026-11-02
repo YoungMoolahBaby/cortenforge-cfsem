@@ -136,6 +136,39 @@ fn ring(c: &Coil) -> Solid {
     body.translate(Vector3::new(0.0, 0.0, c.z * MM))
 }
 
+/// A revolve that cf-design does not ship, built on its `user_fn` escape hatch: the signed 2D
+/// distance to a closed (R, Z) polygon (m), evaluated at (sqrt(x^2 + y^2), z), in mm. Exact SDF
+/// wherever the profile's is (a polygon's is).
+fn revolve_solid(profile: &[(f64, f64)]) -> Solid {
+    let poly: Vec<(f64, f64)> = profile.iter().map(|p| (p.0 * MM, p.1 * MM)).collect();
+    let rmax = poly.iter().map(|p| p.0).fold(0.0, f64::max) + 10.0;
+    let (zmin, zmax) = poly
+        .iter()
+        .fold((f64::MAX, f64::MIN), |a, p| (a.0.min(p.1), a.1.max(p.1)));
+    let bounds = cortenforge::cf_design::Aabb::new(
+        Point3::new(-rmax, -rmax, zmin - 10.0),
+        Point3::new(rmax, rmax, zmax + 10.0),
+    );
+    Solid::user_fn(
+        move |p| {
+            let q = (p.x.hypot(p.y), p.z);
+            let n = poly.len();
+            let mut d2 = f64::MAX;
+            for k in 0..n {
+                let (a, b) = (poly[k], poly[(k + 1) % n]);
+                let (ex, ez) = (b.0 - a.0, b.1 - a.1);
+                let t =
+                    (((q.0 - a.0) * ex + (q.1 - a.1) * ez) / (ex * ex + ez * ez)).clamp(0.0, 1.0);
+                let (dx, dz) = (q.0 - a.0 - t * ex, q.1 - a.1 - t * ez);
+                d2 = d2.min(dx * dx + dz * dz);
+            }
+            let d = d2.sqrt();
+            if inside(&poly, q) { -d } else { d }
+        },
+        bounds,
+    )
+}
+
 /// Keep the triangles whose centroid lies outside the azimuth wedge (a0, a1): a cut-away.
 fn cut(m: &IndexedMesh, a0: f64, a1: f64) -> IndexedMesh {
     let mut out = m.clone();
@@ -241,6 +274,15 @@ pub fn run() {
         t0.elapsed().as_secs_f64(),
     );
     save_mesh(&vessel, out.join("vessel.stl")).expect("write STL");
+    // The same vessel as a cf-design solid through the user_fn revolve (a finding probe).
+    let t0 = Instant::now();
+    let vessel_solid = solid_mesh(&revolve_solid(&wall), 10.0);
+    rep.part(
+        "vessel via user_fn revolve",
+        &vessel_solid,
+        Some(pappus(&wall).0),
+        t0.elapsed().as_secs_f64(),
+    );
 
     // PF coils and the central solenoid: cf-design rings.
     let mut pf = Vec::new();
