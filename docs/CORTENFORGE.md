@@ -154,6 +154,17 @@ None yet.
     under a second for the same vessel as a hand-built revolved mesh: a `user_fn` has no interval
     function, so the mesher cannot prune empty space, and each evaluation scans every profile
     segment. A native revolve could supply both.
+- **bug** (2026-11-02): `mesh` output depends on how the faces fall on its grid. The maglev
+  hangers with the power tray (boxes unioned and subtracted, printed on end), meshed at 0.4 mm
+  and welded at 1 um: 12 and 18 self-intersecting triangle pairs, a 0.27 mm sliver flagged as a
+  thin wall (0.0 mm^2) and, for the station hanger, 4060 non-manifold edges. The same solids at
+  0.37 mm: watertight, no self-intersections, no thin walls (maglev-train `parts`). The grid
+  starts one cell outside the bounds (solid/query.rs:93-96), so faces a whole number of cells
+  from the bounds land on grid nodes; that is the suspected cause, not confirmed. Users can't
+  see this without a validator, and the fix (another cell size) is found by trial.
+- **works** (2026-11-02): a pickup former for an 85 kHz coil (a plate minus a rectangular ring
+  channel and two lead holes): probes at the channel floor, both channel edges and a hole wall
+  read 0.000 mm; printable, 1.18M faces in 12.4 s at 0.2 mm.
 
 ### `mesh` (printability, repair, io)
 

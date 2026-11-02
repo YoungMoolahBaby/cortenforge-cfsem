@@ -18,7 +18,7 @@ use nalgebra::Complex;
 
 use crate::link::{
     Coil, GAP0, P_LOAD, PICKUP, Rail, W, W_TRACK, Z_TRACK, coil_mutual, design, image, l_self,
-    m_link, operate_lossy, z_pickup,
+    m_link, operate, operate_lossy, pickup, z_pickup,
 };
 use crate::loops::{Loop, P3, field};
 
@@ -108,15 +108,63 @@ fn linkage(src: &Coil, tgt: &[Loop], rail: f64) -> f64 {
     m
 }
 
-pub fn run() {
-    let d = design(10);
-    let tr = &d.tr;
-    let pk = &d.pk;
+/// The track and the 10-turn pickup at the hover gap as 2D line pairs.
+fn lines2d() -> (Lines, Lines) {
     let (dt, dp) = (-Z_TRACK, -z_pickup(GAP0));
     let track2 = pair(0.5 * W_TRACK, dt);
     let pick2: Lines = (0..10)
         .flat_map(|k| pair(0.5 * (PICKUP.1 - 2.4e-3 * k as f64), dp))
         .collect();
+    (track2, pick2)
+}
+
+/// Steel's complex image weights relative to ideal iron, for the track-to-pickup, pickup-to-
+/// itself and track-to-itself terms.
+fn weights(mu_r: f64) -> (C, C, C) {
+    let (track2, pick2) = lines2d();
+    let rr = |k: f64| r_coef(k, mu_r);
+    let rho = |s: &Lines, t: &Lines| reflected(s, t, &rr) / image_closed(s, t);
+    (
+        rho(&track2, &pick2),
+        rho(&pick2, &pick2),
+        rho(&track2, &track2),
+    )
+}
+
+/// The cart's supply: the track current that gives P_LOAD at the hover gap for the worst steel
+/// (mu_r 100-1000), and the load power at that current for each gap (free-space change with gap,
+/// times the hover steel factor).
+pub fn cart_supply(gaps: &[f64]) -> (f64, Vec<f64>) {
+    let d = design(10);
+    let dm_iron = m_link(&d.tr, &d.pk, Rail::Iron) - d.m;
+    let dl2_iron = l_self(&d.pk, Rail::Iron) - d.l2;
+    let dl1_iron = l_self(&d.tr, Rail::Iron) - d.l1;
+    let mut need = 0.0_f64;
+    for mu_r in MU_R {
+        let (rm, r2, r1) = weights(mu_r);
+        let m = C::new(d.m, 0.0) + rm * dm_iron;
+        let l2 = C::new(d.l2, 0.0) + r2 * dl2_iron;
+        let op = operate_lossy(m, l2, r1 * dl1_iron, d.tr.ohm, d.pk.ohm, d.c2, d.rl, d.i1);
+        need = need.max(d.i1 * (P_LOAD / op.p_load).sqrt());
+    }
+    let scale = P_LOAD / operate(d.m, d.l2, d.tr.ohm, d.pk.ohm, d.c2, d.rl, need).p_load;
+    let p = gaps
+        .iter()
+        .map(|&g| {
+            let pk = pickup(0.6, 0.0, g, PICKUP.0, PICKUP.1, 10, 0.005);
+            let (m, l2) = (m_link(&d.tr, &pk, Rail::Free), l_self(&pk, Rail::Free));
+            operate(m, l2, d.tr.ohm, pk.ohm, d.c2, d.rl, need).p_load * scale
+        })
+        .collect();
+    (need, p)
+}
+
+pub fn run() {
+    let d = design(10);
+    let tr = &d.tr;
+    let pk = &d.pk;
+    let dp = -z_pickup(GAP0);
+    let (track2, pick2) = lines2d();
 
     println!(
         "1. The steel rail at 85 kHz (2D track over a conducting magnetic half-space, sigma {:.0} MS/m)",
@@ -161,13 +209,7 @@ pub fn run() {
     );
     let mut need = 0.0_f64;
     for mu_r in MU_R {
-        let rr = |k: f64| r_coef(k, mu_r);
-        let rho = |s: &Lines, t: &Lines| reflected(s, t, &rr) / image_closed(s, t);
-        let (rm, r2, r1) = (
-            rho(&track2, &pick2),
-            rho(&pick2, &pick2),
-            rho(&track2, &track2),
-        );
+        let (rm, r2, r1) = weights(mu_r);
         let m = C::new(d.m, 0.0) + rm * dm_iron;
         let l2 = C::new(d.l2, 0.0) + r2 * dl2_iron;
         let dl1 = r1 * dl1_iron;

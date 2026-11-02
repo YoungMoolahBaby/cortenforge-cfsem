@@ -22,6 +22,7 @@ use nalgebra::Vector3;
 use crate::corner::{Table, corner_coil};
 use crate::guide::GuideTable;
 use crate::motor::MotorTable;
+use wireless_charging::effects::cart_supply;
 
 const G: f64 = 9.81;
 const MASS: f64 = 0.5; // kg, cart with its nominal payload
@@ -65,6 +66,10 @@ const LAT_NOISE: f64 = 1e-6;
 const I_GUIDE: f64 = 8.0;
 const F_GUIDE: f64 = 8.0;
 const LIP: f64 = 0.002;
+/// The cart's power bus (wireless-charging): electronics (controller, six displacement sensors, gate
+/// drives) and the pickup's rectifier and charger, both assumed until real parts are chosen.
+const P_ELEC: f64 = 2.0;
+const ETA_CHARGER: f64 = 0.9;
 
 /// State shared between the physics callback and the controller.
 #[derive(Default)]
@@ -234,6 +239,7 @@ struct Log {
     gap: Vec<[f64; 4]>,
     current: Vec<[f64; 4]>,
     power: Vec<f64>,
+    bus: Vec<f64>,
 }
 
 /// The zero-power plane: heave, pitch, roll mode gaps at which the four magnets alone hold the
@@ -302,6 +308,18 @@ pub fn run() {
     let copper = motor[2].1.copper;
     // Guidance tables at the nominal gap (the force changes about 1.7% a mm off-centre).
     let guide = Arc::new(GuideTable::build(0.005964, 24));
+    // Power from the track (wireless-charging): load power of the pickup against the cart's mean
+    // gap, at the track current sized for the worst steel.
+    let supply_gaps: Vec<f64> = (0..=12).map(|k| 0.0044 + 0.0002 * k as f64).collect();
+    let (track_amps, supply_w) = cart_supply(&supply_gaps);
+    let supply_at = |g: f64| {
+        let u = ((g - supply_gaps[0]) / 0.0002).clamp(0.0, 11.999);
+        let i = u.floor() as usize;
+        supply_w[i] + (u - i as f64) * (supply_w[i + 1] - supply_w[i])
+    };
+    let (mut buffer, mut buffer_min, mut bus_peak) =
+        (0.0_f64, (0.0_f64, 0.0_f64), (0.0_f64, 0.0_f64));
+    let (mut bus_energy, mut supply_energy) = (0.0, 0.0);
     let model = Arc::new(build_model(
         tab.clone(),
         shared.clone(),
@@ -376,6 +394,7 @@ pub fn run() {
         gap: vec![],
         current: vec![],
         power: vec![],
+        bus: vec![],
     };
     let t_end = 9.0;
     let n = (t_end / DT).round() as usize;
@@ -436,6 +455,7 @@ pub fn run() {
         // Current loops and coil equations, per corner.
         let mut s = shared.lock().expect("shared state");
         let mut power = 0.0;
+        let mut bus = P_ELEC;
         for c in 0..4 {
             let i = s.current[c];
             let e = i_cmd[c] - i;
@@ -447,8 +467,25 @@ pub fn run() {
             let (l, dl) = tab.eval(&tab.l, gap[c]);
             let (_, dpsi) = tab.eval(&tab.psi, gap[c]);
             s.current[c] = i + (v - tab.r * i - (i * dl + dpsi) * gap_rate[c]) / l * DT;
+            // What the driver draws from the bus over the step (negative: energy returned); the
+            // step's mean current keeps the stored magnetic energy balanced.
+            bus += v * 0.5 * (i + s.current[c]);
             power += s.current[c] * s.current[c] * tab.r;
         }
+        // The bus: the pickup (through the rectifier and charger) against the coil drivers and the
+        // electronics, with a buffer that starts full and is topped up to full (the pickup
+        // regulator sheds the rest).
+        let mean_gap = 0.25 * gap.iter().sum::<f64>();
+        let supply = ETA_CHARGER * supply_at(mean_gap);
+        buffer = (buffer + (supply - bus) * DT).min(0.0);
+        if buffer < buffer_min.0 {
+            buffer_min = (buffer, t);
+        }
+        if bus > bus_peak.0 {
+            bus_peak = (bus, t);
+        }
+        bus_energy += bus * DT;
+        supply_energy += supply * DT;
         // Propulsion: track the trip profile (mass feedforward plus PD), and the payload.
         let (xr, vr, ar) = trip(t);
         let f_cmd = MASS * ar + 40.0 * (xr - data.qpos[0]) + 12.0 * (vr - data.qvel[0]);
@@ -476,6 +513,7 @@ pub fn run() {
             log.gap.push(gap);
             log.current.push(s.current);
             log.power.push(power);
+            log.bus.push(bus);
         }
     }
     if let Some((t, gap)) = lost {
@@ -549,6 +587,61 @@ pub fn run() {
         "   linear motor: thrust constant {kf:.4} N/A, copper {copper:.2} W/A^2; peak thrust current {peak:.3} A, \
          stator energy for the trip {energy:.3} J (peak {:.2} W)",
         log.stator.iter().fold(0.0_f64, |a, &v| a.max(v))
+    );
+    // Power from the track and the buffer it needs.
+    let t_end = n as f64 * DT;
+    let deficit = -buffer_min.0;
+    println!(
+        "   power from the track: {track_amps:.2} A rms gives {:.2} W into the pickup's load at the hover gap \
+         ({:.2} W landed at 4.4 mm, {:.2} W at 6.8 mm), {:.0}% to the bus (assumed)",
+        supply_at(0.005964),
+        supply_w[0],
+        supply_w[12],
+        ETA_CHARGER * 100.0
+    );
+    println!(
+        "   bus: mean demand {:.2} W (coil drivers {:.2} W + electronics {P_ELEC} W, assumed) against {:.2} W supplied; \
+         peak demand {:.1} W at {:.3} s",
+        bus_energy / t_end,
+        bus_energy / t_end - P_ELEC,
+        supply_energy / t_end,
+        bus_peak.0,
+        bus_peak.1
+    );
+    for (label, t0, t1) in [
+        ("lift-off", 0.0, 0.3),
+        ("settling", 0.3, 0.7),
+        ("hover", 0.7, 1.0),
+        ("payload", 1.0, 2.0),
+        ("with payload", 2.0, 2.5),
+        ("trip", 2.5, 8.0),
+        ("station", 8.5, 9.0),
+    ] {
+        let idx = phase(t0, t1);
+        let m = |v: &Vec<f64>| idx.iter().map(|&i| v[i]).sum::<f64>() / idx.len() as f64;
+        println!(
+            "      {label:<13} {t0:.1}-{t1:.1} s: bus {:.3} W (coil copper {:.3} W)",
+            m(&log.bus),
+            m(&log.power)
+        );
+    }
+    let station = phase(8.5, 9.0);
+    let st_gap = station
+        .iter()
+        .map(|&i| 0.25 * log.gap[i].iter().sum::<f64>())
+        .sum::<f64>()
+        / station.len() as f64;
+    let st_bus = station.iter().map(|&i| log.bus[i]).sum::<f64>() / station.len() as f64;
+    let surplus = ETA_CHARGER * supply_at(st_gap) - st_bus;
+    println!(
+        "   buffer: deepest draw {:.3} J at {:.3} s; a supercapacitor working 12 -> 9 V needs {:.0} mF for it ({:.0} mF at 2x margin); \
+         at the station the surplus is {:.2} W, refilling it in {:.1} s",
+        deficit,
+        buffer_min.1,
+        2.0 * deficit / (12.0 * 12.0 - 9.0 * 9.0) * 1e3,
+        4.0 * deficit / (12.0 * 12.0 - 9.0 * 9.0) * 1e3,
+        surplus,
+        deficit / surplus
     );
     // Sideways: the body corners (x = +-HALF.0) against the lips LIP away.
     let corner = |i: usize| log.y[i].abs() + HALF.0 * log.yaw[i].sin().abs();

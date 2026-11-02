@@ -31,6 +31,21 @@ const BOARD: f64 = 1.5; // stator board thickness under the steel (mm)
 const STEEL: (f64, f64) = (60.0, 3.0); // flat bar width, thickness
 const CLEAR: f64 = 2.0; // side clearance to the guide lips
 const REST_GAP: f64 = 6.5; // mm, where the station shelf holds the cart (lift-off start)
+/// Pickup former under the hull (wireless-charging `link`): a plate with a rectangular channel
+/// for the 10-turn Litz spiral (turn centres from 130 x 70 mm in steps of 2.4 mm, bundle 1.1 mm),
+/// the winding's centre 2.0 mm under the body as modelled. Channel edges: the outer turn's centre
+/// + 0.6 mm, the inner turn's - 0.6 mm.
+const FORMER: (f64, f64, f64) = (140.0, 78.0, 2.6);
+const CHANNEL_OUT: (f64, f64) = (131.2, 71.2);
+const CHANNEL_IN: (f64, f64) = (107.2, 47.2);
+const CHANNEL_D: f64 = 1.2;
+/// Lead holes, at the outer and inner turns on the +x centreline (through the former and hull).
+const LEADS: [f64; 2] = [65.0, 54.2];
+/// Track tray in the hanger floor: Litz conductors (2.4 mm bundles) 60 mm apart, centred 46 mm
+/// under the steel; grooves open on top, the conductors 1.2 mm under the floor's surface.
+const TRACK: (f64, f64, f64) = (30.0, -46.0, 1.2); // half spacing, centre z, bundle radius
+const FLOOR_TOP: f64 = -43.6;
+const FLOOR_BOTTOM: f64 = -49.4;
 
 fn bx(cx: f64, cy: f64, cz: f64, sx: f64, sy: f64, sz: f64) -> Solid {
     Solid::cuboid(Vector3::new(0.5 * sx, 0.5 * sy, 0.5 * sz)).translate(Vector3::new(cx, cy, cz))
@@ -58,27 +73,52 @@ fn deck(skid: f64) -> Solid {
     d
 }
 
-/// The hull: an open tray for battery and electronics, printed open side up.
+/// The hull: an open tray for the buffer, electronics and the pickup's capacitor and rectifier,
+/// printed open side up, with the pickup's two lead holes in its floor.
 fn hull() -> Solid {
     let h = BODY.2 - DECK_T;
-    bx(0.0, 0.0, 0.5 * h, BODY.0, BODY.1, h).subtract(bx(
+    let mut s = bx(0.0, 0.0, 0.5 * h, BODY.0, BODY.1, h).subtract(bx(
         0.0,
         0.0,
         0.5 * h + WALL,
         BODY.0 - 2.0 * WALL,
         BODY.1 - 2.0 * WALL,
         h,
-    ))
+    ));
+    for x in LEADS {
+        s = s.subtract(cyl(x, 0.0, -1.0, WALL + 1.0, 1.5));
+    }
+    s
+}
+
+/// The pickup former, printed flat with the channel up (it is glued under the hull channel down):
+/// a plate, the winding channel, and the two lead holes through the channel floor.
+fn former() -> Solid {
+    let (t, d) = (FORMER.2, CHANNEL_D);
+    let ring = bx(0.0, 0.0, t, CHANNEL_OUT.0, CHANNEL_OUT.1, 2.0 * d).subtract(bx(
+        0.0,
+        0.0,
+        t,
+        CHANNEL_IN.0,
+        CHANNEL_IN.1,
+        2.0 * d + 1.0,
+    ));
+    let mut s = bx(0.0, 0.0, 0.5 * t, FORMER.0, FORMER.1, t).subtract(ring);
+    for x in LEADS {
+        s = s.subtract(cyl(x, 0.0, -1.0, t + 1.0, 0.8));
+    }
+    s
 }
 
 /// The rail hanger's cross-section (y, z), extruded `len` along x and printed standing on end:
 /// a top plate over the steel bar, tabs under the stator board's edges, side lips guiding the
-/// cart, and at a station, ledges where the cart rests at REST_GAP.
+/// cart, a floor under the cart carrying the power track's two conductors in grooves, and at a
+/// station, ledges where the cart's pickup former rests at REST_GAP.
 fn hanger(len: f64, station: bool) -> Solid {
     let lip_in = 0.5 * BODY.1 + CLEAR; // inner face of the lips
     let lip_t = 3.0;
     let top = (STEEL.1, STEEL.1 + 5.0);
-    let bottom = -(REST_GAP + BODY.2) - if station { 3.0 } else { -6.0 };
+    let bottom = FLOOR_BOTTOM;
     let slab = |y0: f64, y1: f64, z0: f64, z1: f64| {
         bx(0.0, 0.5 * (y0 + y1), 0.5 * (z0 + z1), len, y1 - y0, z1 - z0)
     };
@@ -93,11 +133,24 @@ fn hanger(len: f64, station: bool) -> Solid {
         let (e, f) = (sign * 0.5 * STEEL.0, sign * lip_in);
         s = s.union(slab(e.min(f), e.max(f), -BOARD, top.0));
         if station {
-            // Ledge under the cart's edge: its top is where the cart's bottom rests.
+            // Ledge under the cart's edge: its top is where the pickup former's rim rests.
             let (g, h) = (sign * (lip_in - 6.0), sign * lip_in);
-            let z_rest = -(REST_GAP + BODY.2);
-            s = s.union(slab(g.min(h), g.max(h), bottom, z_rest));
+            let z_rest = -(REST_GAP + BODY.2 + FORMER.2);
+            s = s.union(slab(g.min(h), g.max(h), FLOOR_TOP, z_rest));
         }
+    }
+    // The floor and the track conductors' grooves (2.6 mm wide, open on top).
+    // The floor runs through the lips (no coincident faces for the mesher).
+    s = s.union(slab(
+        -lip_in - lip_t,
+        lip_in + lip_t,
+        FLOOR_BOTTOM,
+        FLOOR_TOP,
+    ));
+    for sign in [-1.0, 1.0] {
+        let y = sign * TRACK.0;
+        let (w, z0) = (2.0 * TRACK.2 + 0.2, TRACK.1 - TRACK.2 - 0.2);
+        s = s.subtract(slab(y - 0.5 * w, y + 0.5 * w, z0, FLOOR_TOP + 1.0));
     }
     // Two mounting holes through the top plate, diamond-shaped (a square turned 45 deg about the
     // hole axis): printed on end the hole runs sideways, and a round hole's top would be a flat
@@ -153,6 +206,8 @@ fn part(name: &str, solid: &Solid, cell: f64, out: &std::path::Path) -> IndexedM
                         l.z - zmin,
                         i.description
                     );
+                } else {
+                    println!("      critical: {}", i.description);
                 }
             }
             format!(
@@ -239,15 +294,39 @@ pub fn run() {
         probe(&d, 50.0 + POCKET.0, 25.0, DECK_T - 2.0),
         probe(&d, 62.0, 12.0, DECK_T + skid)
     );
+    let f = former();
+    let (t, h) = (FORMER.2, 0.5 * (CHANNEL_OUT.0 + CHANNEL_IN.0) * 0.5);
+    println!(
+        "   former probes: channel floor {:+.3}, channel outer edge {:+.3}, inner edge {:+.3}, lead hole wall {:+.3}",
+        probe(&f, h, 1.0, t - CHANNEL_D),
+        probe(&f, 0.5 * CHANNEL_OUT.0, 10.0, t - 0.5 * CHANNEL_D),
+        probe(&f, 0.5 * CHANNEL_IN.0, 10.0, t - 0.5 * CHANNEL_D),
+        probe(&f, LEADS[0] + 0.8, 0.0, 0.5 * (t - CHANNEL_D))
+    );
+    // Clearances along z (track frame, mm): the former's face under the cart, the tray floor.
+    let face = |gap: f64| -(gap + BODY.2 + FORMER.2);
+    println!(
+        "   clearances: former face {:.2} mm (hover gap 5.964 mm), {:.2} (station shelf {REST_GAP} mm), tray floor {FLOOR_TOP} mm: \
+         {:.2} and {:.2} mm to the floor; track conductors {:.1} mm under the winding's centre at hover",
+        face(5.964),
+        face(REST_GAP),
+        face(5.964) - FLOOR_TOP,
+        face(REST_GAP) - FLOOR_TOP,
+        -(5.964 + BODY.2 + 2.0) - TRACK.1
+    );
     let deck_m = part("cart_deck", &d, 0.25, &out);
     let hull_m = part("cart_hull", &hull(), 0.4, &out);
-    part("rail_hanger", &hanger(100.0, false), 0.4, &out);
-    part("station_hanger", &hanger(100.0, true), 0.4, &out);
+    let former_m = part("pickup_former", &f, 0.2, &out);
+    // 0.37 mm, not 0.4: at 0.4 the hangers mesh with non-manifold edges and self-intersections.
+    part("rail_hanger", &hanger(100.0, false), 0.37, &out);
+    part("station_hanger", &hanger(100.0, true), 0.37, &out);
     println!("   STL in {}", out.display());
-    let printed_g = (deck_m.signed_volume() + hull_m.signed_volume()) / 1e3 * 1.24;
+    let printed_g =
+        (deck_m.signed_volume() + hull_m.signed_volume() + former_m.signed_volume()) / 1e3 * 1.24;
     println!(
-        "3. Mass budget (cart, 500 g in the model with its 200 g nominal payload): printed deck + hull {printed_g:.0} g \
-         solid PLA (about {:.0} g at 40% effective density); magnets 4 x {:.1} g; coils 4 x {:.1} g copper",
+        "3. Mass budget (cart, 500 g in the model with its 200 g nominal payload): printed deck + hull + pickup former \
+         {printed_g:.0} g solid PLA (about {:.0} g at 40% effective density); magnets 4 x {:.1} g; coils 4 x {:.1} g copper; \
+         pickup Litz {:.0} g copper",
         printed_g * 0.4,
         7.5e-3 * std::f64::consts::PI * 0.6 * 0.6 * 0.4 * 1e3,
         corner_coil().turns() as f64
@@ -258,6 +337,8 @@ pub fn run() {
             * 0.0321
             * std::f64::consts::PI
             / 4.0
-            * 8.96
+            * 8.96,
+        // 3.57 m of 0.5 mm^2 copper (wireless-charging `link`), in g.
+        3.57 * 0.5 * 8.96
     );
 }

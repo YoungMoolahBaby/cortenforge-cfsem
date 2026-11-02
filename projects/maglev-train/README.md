@@ -58,13 +58,14 @@ For a strict hospital (think Mayo Clinic), at full scale, and scaled down for th
   control through the coil, zero-power control, a sensor-noise sweep; plots in
   `out/corner_*.svg` (about 4 s).
 - `cart`: the whole cart: lift-off, an off-centre payload, a 1.2 m trip to a station driven by the
-  linear motor, against the zero-power attitude predicted from the force table; plot in
-  `out/cart.svg` (about 35 s, most of it building the motor tables).
+  linear motor, against the zero-power attitude predicted from the force table; sideways
+  guidance; power from the track and the buffer it needs; plot in `out/cart.svg` (about 45 s,
+  most of it building the motor and pickup tables).
 - `motor`: the linear motor: cfsem's circular-to-linear mutual against the true midpoint,
   per-phase thrust, thrust by Lorentz force vs coenergy, the commutated thrust constant and
   ripple, copper loss (about 22 s).
 - `parts`: the landing-skid window from the force table, then the printable parts (cf-design),
-  checked and written to `out/parts/*.stl` (mm), and a mass budget (about 35 s).
+  checked and written to `out/parts/*.stl` (mm), and a mass budget (about 70 s).
 - `guide`: the sideways-guidance coil layer: per-phase sideways force by Lorentz vs coenergy, the
   front and rear blocks' force and yaw per amp, side effects, and the motor's and guidance's
   behaviour 1 mm off-centre (about 16 s).
@@ -286,6 +287,40 @@ block currents from the tables at the cart's position (limit 8 A). Test: start 1
   are at 205 mW. Requirement: sideways sensors of about 1 um, the gap sensors' class.
 - The rest of the trip is unchanged: stop at 1.2000 m, zero-power attitude within 0.7 um.
 
+## Power from the track (`cart`, with wireless-charging, 2026-11-02)
+
+The cart takes its power from a track loop through a pickup under its hull (wireless-charging:
+`link` sizes it, `effects` the rail and side effects). `cart` reads the pickup's load power
+against the cart's mean gap from wireless-charging, at the 6.61 A of track current sized for the
+worst steel: 5.00 W hovering, 4.24 W landed (4.4 mm), 5.48 W at 6.8 mm. A charger (90%,
+assumed) feeds a 12 V bus; on it are the four coil drivers (their drive voltage times the step's
+mean current, every 25 us step) and 2 W of electronics (controller, six displacement sensors,
+gate drives; assumed). A buffer takes the difference, starting full; the pickup's regulator
+sheds the surplus once it is full.
+
+| Phase | Bus demand | of it, coil copper |
+|---|---|---|
+| lift-off from the station shelf, 0-0.3 s | 35.6 W | 33.8 W |
+| hovering, 0.7-1.0 s | 2.03 W | 0.21 W |
+| after the 100 g set-down, 1.0-2.0 s | 17.7 W | 15.7 W |
+| with the payload, 2.0-2.5 s | 2.25 W | 0.40 W |
+| trip, 2.5-8.0 s | 2.22 W | 0.37 W |
+| at the station, 8.5-9.0 s | 2.05 W | 0.20 W |
+
+- In steady running the cart needs about 2.0-2.3 W against 4.3-4.5 W supplied: the electronics,
+  not the levitation, are most of it.
+- Two events need a buffer: lifting off the shelf (from 6.5 mm the magnets alone can't hold the
+  cart, so the coils pull hard; peak 239 W at 0.026 s, 20 A from 12 V) and the zero-power settle
+  after the payload (a second at about 16 W of copper). The deepest draw is 21.4 J at 1.71 s.
+- A supercapacitor bank working 12 to 9 V needs 681 mF for that, 1.36 F at twice the margin; the
+  station's surplus of 2.25 W refills it in 9.5 s. No battery: on a power cut the cart lands on
+  its skids (the designed failure mode), so a buffer for the events is enough.
+- In steady hover the drivers' energy comes out about 0.17 W under their copper loss (the coils
+  take in a little mechanical energy from the cart's jitter); not resolved, and 1.5% of the
+  deepest draw.
+- The rest of the run is unchanged (stop at 1.2000 m, zero-power attitude within 0.7 um, no
+  contact with the lips).
+
 ## Parts and the parts list (`parts`, 2026-11-02)
 
 ### Landing skids
@@ -314,8 +349,9 @@ printed (z up), written to `out/parts/`:
 |---|---|---|---|
 | `cart_deck` | flat, pockets up | 61.5 cm^3 (76 g) | printable |
 | `cart_hull` | open side up | 51.0 cm^3 (63 g) | printable |
-| `rail_hanger` (100 mm) | on end | 79.5 cm^3 (99 g) | 2 flags, see below |
-| `station_hanger` (100 mm) | on end | 88.5 cm^3 (110 g) | 2 flags, see below |
+| `pickup_former` | flat, channel up | 23.2 cm^3 (29 g) | printable |
+| `rail_hanger` (100 mm, with the power tray) | on end | 137.7 cm^3 (171 g) | 2 flags, see below |
+| `station_hanger` (100 mm, with the power tray) | on end | 143.1 cm^3 (177 g) | 2 flags, see below |
 
 - Deck: 140 x 80 x 6 mm, four 19.5 x 4 mm pockets for the magnet with its coil wound round it
   (glued as one: the model has only 0.5 mm between magnet and coil, too thin for a printed wall),
@@ -323,16 +359,33 @@ printed (z up), written to `out/parts/`:
   room outboard; an outboard first try left a 0.25 mm wall and a non-manifold mesh), and four
   3.03 mm skids inside the board's width. Probes: pocket floor, pocket wall and skid top at
   0.000 mm.
-- Hull: an open tray (2.5 mm walls) for battery and electronics under the deck.
+- Hull: an open tray (2.5 mm walls) for the power buffer, electronics and the pickup's capacitor
+  and rectifier, under the deck, with two lead holes for the pickup in its floor.
+- Pickup former (wireless-charging `link`): a 140 x 78 x 2.6 mm plate glued under the hull,
+  channel down, holding the 10-turn Litz spiral: a channel 131.2 x 71.2 mm outside, 107.2 x
+  47.2 mm inside, 1.2 mm deep (the turns' centres from 130 x 70 mm in steps of 2.4 mm, bundles
+  1.1 mm), which puts the winding's centre 2.0 mm under the body as modelled. The two leads go
+  straight up through holes at the outer and inner turns, so the inner lead never crosses the
+  winding. Probes: channel floor, both channel edges and a lead hole wall at 0.000 mm. The model
+  uses sharp-cornered turns; a real Litz bundle rounds the corners a little.
 - Hangers: a constant cross-section printed standing on end, so every wall is vertical: a top
   plate over the 60 x 3 mm steel bar, tabs under the stator board's edges, side lips 2 mm off the
-  cart's sides, two mounting holes; the station version adds ledges where the cart rests at the
-  6.5 mm lift-off gap. The mounting holes are diamonds (round holes running sideways would have
-  flat tops); the two remaining flags are the diamonds' apexes, which the mesher blunts into
-  strips about 0.4 mm wide (located at the hole tops), not a real overhang.
-- Mass: deck and hull 140 g solid, about 56 g at a typical 40% effective density; magnets
-  4 x 3.4 g; coil copper 4 x 2.9 g. With the 200 g nominal payload that leaves about 220 g of the
-  model's 500 g for battery, electronics, sensors and wiring.
+  cart's sides, two mounting holes, and (new with the power track) the lips run down to a floor
+  under the cart with two 2.6 mm grooves holding the track's Litz conductors 60 mm apart, 46 mm
+  under the steel and 1.2 mm under the floor's surface. The station version adds ledges where
+  the pickup former's rim rests at the 6.5 mm lift-off gap. Clearance from the former to the
+  floor: 5.04 mm hovering, 4.50 mm on the shelf. The mounting holes are diamonds (round holes
+  running sideways would have flat tops); the two remaining flags are the diamonds' apexes,
+  which the mesher blunts into strips (located at the hole tops), not a real overhang.
+- The hangers are meshed at 0.37 mm: at 0.4 mm the same solids came out with 12-18
+  self-intersecting triangle pairs, a 0.27 mm sliver and, for the station hanger, 4060
+  non-manifold edges (logged in docs/CORTENFORGE.md).
+- The track loop's end returns cross between the grooves on the last hanger at each end; that
+  cross groove is not modelled.
+- Mass: deck, hull and pickup former 168 g solid, about 67 g at a typical 40% effective density;
+  magnets 4 x 3.4 g; coil copper 4 x 2.9 g; pickup Litz 16 g of copper. With the 200 g nominal
+  payload that leaves about 190 g of the model's 500 g for the power buffer, electronics, sensors
+  and wiring.
 
 ### Parts list (demonstrator, one cart, 1.4 m of track)
 
@@ -344,12 +397,17 @@ printed (z up), written to `out/parts/`:
 | Sideways sensor | 2 | the same class, reading the distance to the guide lips at x = +-60 mm | `cart` |
 | Coil driver | 4 | H-bridge, +-12 V, 10 A peak, current sensing for a 1 kHz current loop | `corner` |
 | Controller | 1 | 2 kHz gap loop (modal), current loops, zero-power loops | `cart` |
-| Battery | 1 | 12 V class; about 0.2-0.4 W average (coils) plus electronics, 10 A peaks | `cart` |
+| Power buffer | 1 | supercapacitor bank, 12 V class, about 1.4 F (21.4 J deepest draw at 2x margin, working 12 to 9 V), 20 A peaks (239 W at lift-off) | `cart` |
+| Pickup | 1 | 10 turns of Litz (0.5 mm^2 copper, about 1.1 mm bundle), 3.57 m, in the `pickup_former` | wireless-charging `link` |
+| Pickup capacitor | 1 | 190.9 nF, 85 kHz, about 20 V rms, 2 A rms (film, low loss) | wireless-charging `link` |
+| Rectifier and charger | 1 | from about 20 V rms at 85 kHz to the 12 V bus, 5 W, with a pickup regulator that sheds surplus | `cart` (90% assumed) |
+| Track conductor | 3.2 m | Litz, 2.5 mm^2 copper, about 2.4 mm bundle, one loop in the hanger grooves | wireless-charging `link` |
+| Track inverter | 1 | 85 kHz, constant 6.6 A rms, series capacitor 1.37 uF | wireless-charging `link`, `effects` |
 | Steel flat bar | 1.4 m | low-carbon, 60 mm x 3 mm or thicker | `stray` (0.55 mm carries the flux; the image model wants it thick) |
 | Stator board | 1.4 m | layer 1: three-phase motor coils, pitch 100/7 mm, 14.3 x 24 mm, 20 turns, two tracks 50 mm apart with phases reversed; layer 2: three-phase guidance coils 14.3 x 50 mm, 20 turns, spanning both rows; 1.5 mm thick | `motor`, `guide` |
 | Motor driver | 1 | three-phase, block-switched sections under the cart, about 1 A per phase, position feedback for commutation | `motor`, `cart` |
 | Guidance driver | 1 | three-phase, two independently driven blocks under the cart (front, rear), 8 A peak | `guide`, `cart` |
-| Printed parts | | `cart_deck`, `cart_hull`, 14 x `rail_hanger`, 1-2 x `station_hanger` | `parts` |
+| Printed parts | | `cart_deck`, `cart_hull`, `pickup_former`, 14 x `rail_hanger`, 1-2 x `station_hanger` | `parts` |
 | Skid pads | 4 | low-friction (PTFE) on the 3.03 mm skids | `parts` |
 
 ### Open items
@@ -358,8 +416,9 @@ printed (z up), written to `out/parts/`:
   stay as a backstop for shoves well beyond 0.3 N at the cart's end.
 - Both board layers were modelled with AWG 24-equivalent copper (0.13 and 0.22 ohm a coil);
   printed copper will be thinner, so recompute the losses for a real board.
-- Power to the cart: designed in wireless-charging (a track loop and a 10-turn pickup under the
-  hull, 5 W at 6.61 A of track current); not yet in the cart simulation or the printed parts.
+- Power to the cart: from the track (above); the electronics' 2 W and the charger's 90% are
+  assumptions to replace with real parts. The lift and gap measurements need anti-alias filters
+  against the 85 kHz pickup (wireless-charging `effects`).
 - Hospital materials: PETG or polycarbonate and sealed seams for cleaning; not yet chosen.
 
 ## Plan
@@ -374,3 +433,5 @@ printed (z up), written to `out/parts/`:
 5. Printable parts and a parts list (done). Open items listed above.
 6. Sideways guidance (done): a guidance coil layer, front and rear blocks, sideways and yaw
    control in the six-motion cart.
+7. Power from the track (done, with wireless-charging): the pickup former and the hangers' power
+   tray, the cart's bus and buffer in the trip.

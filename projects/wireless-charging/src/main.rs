@@ -1,11 +1,9 @@
 //! Main 4: wireless power, first for the maglev cart (inductive power from the track).
 //!
-//! `check` tests cfsem's straight-filament inductance and field against textbook results.
+//! `check` tests cfsem's straight-filament inductance and field against textbook results; `link`
+//! sizes the track loop and pickup; `effects` the rail, induced voltages and stray field.
 
-mod check;
-mod effects;
-mod link;
-mod loops;
+use wireless_charging::{check, effects, link};
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "check".into());

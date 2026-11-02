@@ -162,6 +162,21 @@ the rail bounds, distances from the track conductors:
 - Medical implants (pacemakers and similar) have their own limits, not checked here; a hospital
   would need that before installing.
 
+## On the cart (maglev-train `cart` and `parts`, 2026-11-02)
+
+This crate is also a library: maglev-train calls `effects::cart_supply` for the pickup's load
+power against the cart's gap (at the 6.61 A sized for the worst steel) and runs the cart's power
+bus in its trip. Details in projects/maglev-train/README.md ("Power from the track", parts).
+
+- Steady running needs about 2.0-2.3 W (2 W of it electronics, assumed) against 4.3-4.5 W from
+  the pickup through a 90% charger (assumed).
+- Lift-off from the station shelf (peak 239 W) and the settle after a 100 g set-down draw the
+  buffer down by up to 21.4 J: a supercapacitor bank of about 1.4 F (12 to 9 V, twice the margin),
+  refilled at the station in 9.5 s. No battery: a power cut lands the cart on its skids.
+- Printed: a pickup former (140 x 78 x 2.6 mm, a 1.2 mm channel for the 10 turns, lead holes)
+  glued under the hull, and the hangers' new floor with two grooves for the track's conductors,
+  5.04 mm under the former in flight.
+
 ## Plan
 
 1. Checks (done).
@@ -170,4 +185,5 @@ the rail bounds, distances from the track conductors:
 3. Side effects (done): the steel rail (a conductor, mostly; 6.61 A for 5 W, 0.6-1.2 W of rail
    heating), induced voltage in the lift and stator coils (anti-alias filtering needed), stray
    field (public level within 9 cm).
-4. Printable pickup former and track tray; the pickup on the cart in the maglev simulation.
+4. On the cart (done): the pickup former and the hangers' power tray (printed, maglev-train `parts`),
+   the cart's power bus and buffer in the trip (maglev-train `cart`).

@@ -2000,6 +2000,7 @@ dependencies = [
  "cfsem",
  "cortenforge",
  "nalgebra 0.34.2",
+ "wireless-charging",
 ]
 
 [[package]]

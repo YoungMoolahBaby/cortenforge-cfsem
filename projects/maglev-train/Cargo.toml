@@ -8,3 +8,4 @@ license.workspace = true
 cfsem.workspace = true
 cortenforge.workspace = true
 nalgebra.workspace = true
+wireless-charging = { path = "../wireless-charging" }

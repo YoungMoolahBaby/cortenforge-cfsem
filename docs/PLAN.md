@@ -24,7 +24,10 @@ wire's internal inductance twice (+5% on a single ring, corrected); `link` sizes
 pickup: 5 W from 5.6 A of track current at 85 kHz, 78% coil to coil, within +-2% over the trip
 and the cart's motion; `effects`: the steel rail acts mostly as a conductor (6.61 A for 5 W, 0.6-1.2 W
 of rail heating), lift coils pick up 0.3-1.1 V at 85 kHz (anti-alias filters needed), and the
-field is under the public level 9 cm from the conductors.
+field is under the public level 9 cm from the conductors; on the cart (maglev-train), steady running
+needs about 2.0-2.3 W of the 4.3-4.5 W supplied, lift-off and a payload settle draw a buffer down
+21.4 J (a 1.4 F supercapacitor bank, no battery), and the pickup former and the hangers' power
+tray are printable. Main 4's cart side done in simulation.
 magnet-tracking waits for hardware.
 The other projects are a README each until they start.
 
