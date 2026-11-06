@@ -159,3 +159,19 @@ setup, works) and the date, with file:line in the crate source
   closed form (Am. J. Phys. 78, 229 (2010)) to 7.1e-6 off the axis, converging at second order.
   The dipole's error against the closed form is least at L/D 0.87, as theory says (sqrt(3)/2)
   (magnet-tracking `check`).
+- works, 2026-11-06: `flux_density_linear_filament` for 3D modular stellarator coils (18 planar
+  elliptical coils turning around the torus, 128 filaments each; stellarator `check`, 21 of 21): a circular coil as a
+  polygon converges to `flux_density_circular_filament_cartesian_scalar` at order 2.000
+  (7.1e-6 at 1024 segments); Ampere's law around the torus to 3.6e-13; field-period and
+  stellarator symmetry to 7e-15; div B and curl B zero to the finite-difference truncation. Field
+  lines traced through it close on nested surfaces, and the rotational transform from tracing
+  matches the period map's Jacobian to 3.4e-4.
+- docs, 2026-11-06: the near-wire clamp of the straight-filament kernels uses the distance to the
+  segment's infinite line and does not taper past the segment's ends (documented at math.rs:365,
+  not on `flux_density_linear_filament` itself, physics/linear_filament.rs:643): a point near a
+  segment's extension, centimetres from the wire, is clamped too. Here it made no measurable
+  difference (div B and curl B identical with a 4 mm and a zero wire radius), but the field
+  functions' docs should say it.
+- perf, 2026-11-06: field-line tracing calls `flux_density_linear_filament` one point at a time
+  (each RK4 stage needs the last). 6.9M calls with 2,304 filaments took 74 s on 12 threads, about
+  0.13 ms a call, about 56 ns a filament-point. The hierarchical (Barnes-Hut) variant is not tried yet.

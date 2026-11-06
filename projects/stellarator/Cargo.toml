@@ -1,0 +1,14 @@
+[package]
+name = "stellarator"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cfsem.workspace = true
+cortenforge.workspace = true
+nalgebra.workspace = true
+rayon = "1.12"
+# The facade takes cf-design with default-features = false, which drops `parallel-meshing`
+# (Solid::mesh_adaptive_par). Naming the crate here turns the feature back on for the facade's copy.
+cortenforge-design = { version = "=0.9.0", features = ["parallel-meshing"] }

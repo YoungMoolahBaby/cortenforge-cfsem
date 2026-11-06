@@ -24,6 +24,7 @@ One Cargo workspace; each project lives in `projects/<name>/`.
 | [colon-probe](projects/colon-probe) | Magnetically steered colonoscopy probe: tethered tip, then an untethered capsule; Endotics-style inchworm benchmark |
 | [wireless-charging](projects/wireless-charging) | Map the pad-to-receiver sweet spot and optimize the pad layout; could power the capsule |
 | [soft-robots](projects/soft-robots) | Silicone robots with embedded magnets that bend, crawl or grip; cast with CortenForge mold tooling |
+| [stellarator](projects/stellarator) | A tabletop vacuum-field stellarator: Fourier coils, nested surfaces from field lines, printable coil sweeps; coil search next |
 
 **Extras**
 

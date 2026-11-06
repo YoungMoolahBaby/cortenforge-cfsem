@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["projects/coil-designer", "projects/fusion-visualizer", "projects/maglev-train", "projects/wireless-charging", "projects/magnet-tracking"]
+members = ["projects/coil-designer", "projects/fusion-visualizer", "projects/maglev-train", "projects/wireless-charging", "projects/magnet-tracking", "projects/stellarator"]
 
 [workspace.package]
 edition = "2024"

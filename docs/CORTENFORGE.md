@@ -26,6 +26,12 @@ None yet.
 
 - **works** (2026-11-02): builds alongside cfsem 14 in one workspace, no
   dependency conflicts.
+- **setup** (2026-11-06): the facade takes cf-design with `default-features = false`
+  (cortenforge-0.9.0/Cargo.toml:76-80), which drops cf-design's default `parallel-meshing`, so
+  `cortenforge::cf_design::Solid::mesh_adaptive_par` (solid/query.rs:175, documented as
+  "default-on") does not exist through the facade. Nothing in the facade turns it back on. Workaround: also depend on
+  `cortenforge-design = { version = "=0.9.0", features = ["parallel-meshing"] }`; Cargo's
+  feature unification then enables it for the facade's copy (projects/stellarator/Cargo.toml).
 
 ### `sim-core`
 
@@ -183,6 +189,36 @@ None yet.
 - **works** (2026-11-02): a pickup former for an 85 kHz coil (a plate minus a rectangular ring
   channel and two lead holes): probes at the channel floor, both channel edges and a hole wall
   read 0.000 mm; printable, 1.18M faces in 12.4 s at 0.2 mm.
+- **API** (2026-11-06): `Solid::pipe_spline` (solid/primitives.rs:243) is open-curve only
+  (Catmull-Rom with clamped end tangents, cortenforge-geometry curve.rs:224-233); there is no
+  closed option, though a closed loop is the commonest swept shape for coils. Workaround (stellarator
+  `mesh`): wrap the control points as [p_(n-1), p_0, ..., p_(n-1), p_0, p_1], so every true span
+  has its real neighbours (the two extra end spans repeat true spans). The SDF then matches the
+  true tube distance to 0.060 mm at 64 points and 0.0059 mm at 256 (4 mm tube on a 460 mm
+  ellipse, 20,000 random points within 6 mm; `cargo run --release -p stellarator -- sdf-probe`).
+- **perf** (2026-11-06): `mesh` (uniform marching cubes) is unusable for a long thin sweep: one
+  4 mm-radius coil 460 mm long took 305 s at 1 mm cells (32 control points). Its per-cell
+  "interval pruning" (mesher.rs:83-87) calls `evaluate_interval`, which for `PipeSpline` is
+  `lipschitz_bound` (interval.rs:62): a full SDF evaluation at the cell centre. So every cell of
+  the coil's bounding box costs at least one full spline distance (every span, 17 samples plus
+  Newton). The octree `mesh_adaptive_par` does the same coil in 1.7 s; at 64 points, 3.9 s against
+  20.2 s for the sequential `mesh_adaptive` (identical output). A note on `mesh` pointing sweeps to the octree mesher would save
+  the trial.
+- **bug** (2026-11-06): the octree dual-contouring meshers put vertices well off a smooth surface.
+  On the same tube (no sharp features), `mesh_adaptive_par` and `mesh_adaptive` give identical
+  meshes, watertight and manifold, median vertex 0.0075 mm off the tube at 0.5 mm cells but 9% of
+  vertices more than 0.1 mm off and the worst 0.444 mm (0.9 of a cell); at 1 mm cells, 0.034
+  median and 1.025 mm worst. The solid's own `evaluate` reads up to 0.444 mm at those vertices,
+  so the SDF is right and the vertex placement is wrong (`stellarator -- mesh-probe`, `sdf-probe`).
+  Same family as the concave-corner entry above, here on a smooth surface. Workaround: two Newton
+  steps per vertex along the SDF gradient (`evaluate` and central differences) put every vertex
+  within 0.015 mm of the true tube and keep the mesh watertight and manifold; 1 mm cells then
+  give 31-35k faces a coil. The remaining volume deficit is the facets cutting chords across the
+  round tube: -0.87% at 1 mm, -0.20% at 0.5 mm (second order).
+- **docs** (2026-11-06): the octree meshes come out clean (0 boundary, 0 non-manifold, 0
+  duplicate faces), but the `weld_vertices` at 1 um that marching-cubes output needs (entry
+  above) makes them non-manifold (914 edges at 1 mm, 1,506 at 0.5 mm, with 431 / 763 duplicate
+  faces). Neither mesher's docs say which post-processing it expects.
 
 ### `mesh` (printability, repair, io)
 

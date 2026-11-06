@@ -46,6 +46,15 @@ in a jig, and a joint solve (bundle adjustment) makes even a printed jig (0.2 mm
 motion removes the bias of reading sensors in turn (to 10 um at 200 mm/s). Simulation side done;
 next with hardware.
 Hardware later.
+stellarator started (2026-11-06), a tabletop vacuum-field stellarator: `check` validates the
+Fourier coils, cfsem's straight-filament field for them and an RK4 field-line tracer (21 of 21);
+`scan` shows planar rotating-ellipse coils give iota 0.06-0.10 and picks 18 coils (3 periods,
+100 x 40 mm ellipses, a 20 mm helical shift); `trace` finds the axis as the period map's elliptic
+fixed point and nested surfaces out to about 52 mm, iota 0.105 on axis to 0.082 at the edge
+(ragged at iota = 1/12); `mesh` sweeps the coils with cf-design's `pipe_spline`, meshes them with
+the octree mesher and snaps the vertices onto the surface (within 0.015 mm, watertight and
+manifold, STL). Next: the coil search (sim-opt / sim-rl on the Fourier coefficients), then
+printable formers.
 The other projects are a README each until they start.
 
 ## Order
@@ -56,6 +65,8 @@ The other projects are a README each until they start.
 4. maglev-train or wireless-charging, then soft-robots.
 5. colon-probe: uses tracking (localization) and charging (capsule power).
 6. Extras as time allows.
+7. stellarator: fusion-visualizer's field lines in 3D coils; its coil search uses what
+   coil-designer learned about sim-opt and sim-rl.
 
 ## How the projects connect
 

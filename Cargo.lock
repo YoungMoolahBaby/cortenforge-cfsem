@@ -412,6 +412,7 @@ dependencies = [
  "cortenforge-mesh-types",
  "cortenforge-sim-core",
  "nalgebra 0.34.2",
+ "rayon",
 ]
 
 [[package]]
@@ -3294,6 +3295,17 @@ dependencies = [
  "libc",
  "psm",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "stellarator"
+version = "0.1.0"
+dependencies = [
+ "cfsem",
+ "cortenforge",
+ "cortenforge-design",
+ "nalgebra 0.34.2",
+ "rayon",
 ]
 
 [[package]]
