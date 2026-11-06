@@ -15,6 +15,9 @@ How to read it:
   **perf**, **setup**, or **works** (worth keeping as is). Paths are
   file:line under `~/.cargo/registry/src/*/<crate>-0.9.0/`. Bugs and doc gaps
   are the upstream fix list.
+- **Suggestions** (at the end) are the nice-to-haves: features these projects wanted that no
+  crate has, with what we built or used instead. Same format as cortenforge-play and
+  aerial-animal-rescue.
 
 ## Probe results
 
@@ -275,3 +278,30 @@ None yet.
 ### Platform
 
 None yet.
+
+## Suggestions
+
+- **Linear-elastic structures** (2026-11-06): small-strain linear elasticity for metal parts
+  (isotropic E and nu), a static solve and natural modes, body loads (gravity, the centrifugal
+  rho w^2 r of a spinning structure, magnetic body forces from cfsem's `body_force_density`
+  functions), stress out (von Mises, safety factor), on cf-design solids or their meshes.
+  sim-soft is the only FEM here and is hyperelastic soft-body dynamics: `NeoHookean` and `Yeoh`
+  (sim-soft lib.rs:1-14), silicone tables, backward Euler. Neo-Hookean reduces to linear
+  elasticity at small strain, so sim-soft might take steel at 200 GPa, untested (it is tuned for
+  materials 10^5 times softer). Wanted for: stellarator coil supports under magnetic loads, and a
+  spinning space habitat (rings, spokes, hub). Meanwhile: hand formulas (thin rotating rings and
+  pressurized shells), then the `pmsim` crate (solids and structures, pure-Rust default build) as
+  an outside check, not tried yet.
+- **A native revolve** (2026-11-02): `Solid::revolve(profile)`; see the `cf-design` entry above.
+  Built instead: a revolve on `Solid::user_fn` (fusion-visualizer `mesh`, 16 s to mesh) and
+  hand-built revolved meshes.
+- **Closed sweeps** (2026-11-06): `pipe_spline` (and a sweep with a non-round section) along a
+  closed curve; coils are closed loops. Built instead: wrapped control points (stellarator `mesh`).
+- **A plain parameter optimizer** (2026-11-02): `minimize(f, x0, bounds)` for design
+  parameters, with bounded and integer parameters, restarts on stagnation, a population
+  evaluated in parallel, and CEM returning its best evaluated design. Built instead: a dummy MJCF
+  model with one zero-gear motor per parameter (coil-designer `optimize`, stellarator
+  `optimize` with 45 parameters) and a log of every evaluation to recover the true best.
+- **Mesh post-processing for the octree mesher** (2026-11-06): snap vertices onto the SDF's zero
+  set, as an option of `mesh_adaptive_par`. Built instead: two Newton steps a vertex along the
+  SDF gradient (stellarator `mesh`), 0.44 mm worst error down to 0.015 mm.

@@ -175,3 +175,19 @@ setup, works) and the date, with file:line in the crate source
 - perf, 2026-11-06: field-line tracing calls `flux_density_linear_filament` one point at a time
   (each RK4 stage needs the last). 6.9M calls with 2,304 filaments took 74 s on 12 threads, about
   0.13 ms a call, about 56 ns a filament-point. The hierarchical (Barnes-Hut) variant is not tried yet.
+
+## Suggestions
+
+Nice-to-haves: features these projects wanted that cfsem doesn't have, with what we built
+instead. Same format as `CORTENFORGE.md`.
+
+- **Field-line tools** (2026-11-06): tracing in the toroidal angle, the one-period map, its fixed
+  points and their Jacobians, rotational transform, Poincare sections, for filament fields. Every
+  fusion and magnet user rebuilds these. Built instead: stellarator `src/trace.rs` (RK4, Newton
+  on the period map, Birkhoff-averaged iota; 21 checks in `check`) and fusion-visualizer's tracer.
+- **Charged-particle orbits** (2026-11-06): a Boris pusher for ions and electrons in a filament
+  field (Lorentz force, relativistic option), for active radiation shielding, magnetic nozzles
+  and particle confinement. Not built yet; the active-shield project would need it.
+- **Coupling to structures** (2026-11-06): `body_force_density` gives the magnetic load on a
+  conductor; the next step, stress in its support, needs an elastic solver (see the
+  linear-elastic suggestion in `CORTENFORGE.md`).
