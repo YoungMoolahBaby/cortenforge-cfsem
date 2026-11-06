@@ -132,6 +132,11 @@ magnet or its cryocoolers fail (Globus & Strout's OLTARIS water curve from its 7
 - These magnets are low-field (0.75-2.5 T), so the conductor can run warm, ~65 K (J_e ~300
   A/mm^2 instead of 1,000, judgement from Jc ~ exp(-T/T*)): about 3x the conductor (0.48 instead
   of 0.35 Mt at 50 T m) for 55 MW of cryocoolers instead of 131.
+- Conductor supply (mothership pass 7): REBCO for the 50 T m magnet is ~3e7 km of 12 mm tape,
+  ~6,000 years of today's world output ("an annual production capacity exceeding 5,000 km (12 mm
+  width)", Zhao et al. 2025). The mothership takes MgB2 wire instead (~200 A/mm^2 at ~20 K and
+  1-2 T over the run's 6.15e12 A m: 0.25 Mt, ~1.5e7 km of 2 mm^2 wire, Mg from the Moon), cooled
+  behind an ~80 K intercept shield for ~40 MW (judgement).
 - Magnet leftovers through the 40 m shells: 399, 171, 100, 66, 48, 37, 27, 17, 12, 9 mSv/yr of
   primaries at 10, 20, 30, 40, 50, 60, 75, 100, 125, 150 T m.
 
