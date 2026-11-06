@@ -20,8 +20,9 @@ fn main() {
         }
         "transmission" => scan::transmission(),
         "size" => size::run(),
+        "failsafe" => size::failsafe(),
         other => {
-            eprintln!("unknown mode {other:?}; modes: check, transmission, size");
+            eprintln!("unknown mode {other:?}; modes: check, transmission, size, failsafe");
             std::process::exit(2);
         }
     }

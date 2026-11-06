@@ -64,7 +64,9 @@ centering forces, a Boris tracer and a free-space cosmic-ray dose model (15 of 1
 `transmission` backtraces cosmic rays (half get through at ~1.1 x c B d; thicker, weaker shells
 are sharper and lighter); `size` finds a magnet + water hybrid ~3x lighter than water alone (5.6-
 5.8 Mt against 18.6 Mt for 10 mSv/yr), at the cost of ~131 MW of cryocoolers and 3-12e14 J
-stored. Next: transport for the secondaries, the support structure, quench protection.
+stored; `failsafe` sizes the mothership's design: 4.72 t/m^2 of water (50 mSv/yr if the magnet
+fails) plus a 50 T m magnet run warm at ~65 K, 11.4 Mt, 55 MW, ~18 kt of TNT stored. Next:
+transport for the secondaries, the support structure, quench protection.
 The other projects are a README each until they start.
 
 ## Order

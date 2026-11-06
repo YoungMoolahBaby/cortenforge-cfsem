@@ -25,6 +25,9 @@ cross it. How much it lets through, what it weighs, and what it needs.
   d = 20 m) and how the cutoff moves with bending power and thickness (about 1 min).
 - `size`: conductor, structure, dose through the magnet, water behind it for 10 mSv/yr, and
   cryocooler power for eight designs (about 1 min).
+- `failsafe`: water thick enough for a dose limit with the magnet off, and the smallest magnet
+  (40 m shell) that brings it to 10 mSv/yr with it on, for limits of 20, 50 and 100 mSv/yr
+  (about 1 min). The mothership's design (pass 6) is the 50 mSv/yr row.
 
 ## Check (2026-11-06, 15 of 15)
 
@@ -108,6 +111,29 @@ minimum (phi 0.42 GV); secondaries x2 on the primaries-only dose; water's e-fold
   spinning frame; only the ripple between coils (16.7 Hz at 1,000 loops) induces currents, and
   it is gone at 2,000+. Aluminium rather than steel for the hull near the magnet.
 - Solar particle events (protons below a few GV) are stopped outright: no storm shelter needed.
+
+## Fail-safe hybrid (`failsafe`)
+
+The magnet as a bonus layer, not a lifeline: the water alone keeps the dose under a limit if the
+magnet or its cryocoolers fail (Globus & Strout's OLTARIS water curve from its 7 t/m^2 row at
+2.01 t/m^2 an e-fold); the magnet's leftovers (x2 for secondaries) attenuated by that water meet
+10 mSv/yr with it on, never above the magnet-off dose.
+
+| magnet-off limit | water t/m^2 | water Mt | magnet | magnet Mt | shield Mt | on mSv/yr | stored J | kt TNT | cryo MW, 40 / 65 K |
+|---|---|---|---|---|---|---|---|---|---|
+| 20 mSv/yr | 6.56 | 15.27 | 30 T m, 0.75 T | 0.141 | 15.41 | 7.6 | 2.79e13 | 7 | 131 / 55 |
+| **50 mSv/yr** | **4.72** | **10.98** | **50 T m, 1.25 T** | **0.354** | **11.34** | **9.1** | **7.74e13** | **18** | **131 / 55** |
+| 100 mSv/yr | 3.33 | 7.74 | 100 T m, 2.50 T | 1.309 | 9.05 | 6.6 | 3.10e14 | 74 | 131 / 55 |
+
+- 50 mSv/yr is ICRP's occupational ceiling for any single year ("no single year exceeding 50
+  mSv", ICRP 103 Table 6), so any repair time is survivable; 4.7 t/m^2 of water stops solar
+  particle events by itself. The mothership's design: 11.3-11.5 Mt against 18.5 Mt of water
+  alone (7 Mt saved), a quarter of the full hybrid's stored energy.
+- These magnets are low-field (0.75-2.5 T), so the conductor can run warm, ~65 K (J_e ~300
+  A/mm^2 instead of 1,000, judgement from Jc ~ exp(-T/T*)): about 3x the conductor (0.48 instead
+  of 0.35 Mt at 50 T m) for 55 MW of cryocoolers instead of 131.
+- Magnet leftovers through the 40 m shells: 399, 171, 100, 66, 48, 37, 27, 17, 12, 9 mSv/yr of
+  primaries at 10, 20, 30, 40, 50, 60, 75, 100, 125, 150 T m.
 
 ## Inputs and sources
 
