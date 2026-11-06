@@ -57,6 +57,14 @@ manifold, STL). Coil search run 1 (`optimize`, sim-rl CEM on 45 Fourier coeffici
 free coils, the rest by symmetry; 577 evaluations, 94 min): iota 0.105 -> 0.269 on the axis
 (rising to 0.293 at the edge), good region 52.5 -> 65 mm, coils bent up to 14.5 mm out of plane;
 the score saturated, so next is a score that can't, then coil forces, formers and a build.
+active-shield started (2026-11-06), a magnetic radiation shield for the mothership
+(C:\dev\mothership): a confined toroidal field between two windings round its 70 m tube. `check`
+validates cfsem's oriented-loop field for 2,000 loops, stored energy, magnetic pressure and
+centering forces, a Boris tracer and a free-space cosmic-ray dose model (15 of 15);
+`transmission` backtraces cosmic rays (half get through at ~1.1 x c B d; thicker, weaker shells
+are sharper and lighter); `size` finds a magnet + water hybrid ~3x lighter than water alone (5.6-
+5.8 Mt against 18.6 Mt for 10 mSv/yr), at the cost of ~131 MW of cryocoolers and 3-12e14 J
+stored. Next: transport for the secondaries, the support structure, quench protection.
 The other projects are a README each until they start.
 
 ## Order
@@ -69,6 +77,8 @@ The other projects are a README each until they start.
 6. Extras as time allows.
 7. stellarator: fusion-visualizer's field lines in 3D coils; its coil search uses what
    coil-designer learned about sim-opt and sim-rl.
+8. active-shield: the mothership's magnetic shield (oriented loops, a particle tracer, dose);
+   feeds its `habitat.shield.active_*` parameters.
 
 ## How the projects connect
 

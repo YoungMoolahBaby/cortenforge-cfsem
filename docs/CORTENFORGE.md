@@ -305,7 +305,11 @@ None yet.
   materials 10^5 times softer). Wanted for: stellarator coil supports under magnetic loads, and a
   spinning space habitat (rings, spokes, hub). Meanwhile: hand formulas (thin rotating rings and
   pressurized shells), then the `pmsim` crate (solids and structures, pure-Rust default build) as
-  an outside check, not tried yet.
+  an outside check, not tried yet. The mothership's active shield (cortenforge-cfsem active-shield)
+  needs it too: its carbon-fibre structure holds 3-12e14 J of magnetic pressure, and its mass
+  scales with the virial factor Q (3 with ties, ~10 as hoops), which only a stress solution of
+  the real windings and ties can pin down.
+
 - **A native revolve** (2026-11-02): `Solid::revolve(profile)`; see the `cf-design` entry above.
   Built instead: a revolve on `Solid::user_fn` (fusion-visualizer `mesh`, 16 s to mesh) and
   hand-built revolved meshes.

@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "active-shield"
+version = "0.1.0"
+dependencies = [
+ "cfsem",
+ "rayon",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

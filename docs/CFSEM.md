@@ -176,6 +176,20 @@ setup, works) and the date, with file:line in the crate source
   (each RK4 stage needs the last). 6.9M calls with 2,304 filaments took 74 s on 12 threads, about
   0.13 ms a call, about 56 ns a filament-point. The hierarchical (Barnes-Hut) variant is not tried yet.
 
+- works, 2026-11-06: `flux_density_circular_filament_cartesian_par` with 2,000 oriented loops (two
+  windings of 1,000 poloidal loops round a torus, the mothership's active shield; active-shield
+  `check`, 12 of 12) matches the continuous winding's mu0 N I / (2 pi R) to 3.4e-5 mid-shell and
+  cancels inside the inner winding to 1.3e-10 of the shell field. Stored energy as (1/2) sum I Phi,
+  with Phi the line integral of `vector_potential_circular_filament_cartesian_par` round a loop and
+  a finite wire radius (the strip's geometric mean distance, 0.2231 x the loop spacing), comes
+  within 1.3% of the closed form; I dl x B round a loop gives the magnetic pressure B^2 / 2 mu0 on
+  each winding within 0.7%, and the coil pair's pull toward the spin axis converges to
+  (1/N) dE/dR at order 1.00 in the loop count. The whole check runs in 4 s.
+- API, 2026-11-06: no loop-level helpers for oriented loops: the flux linking a loop (the line
+  integral of A round it) and the net force on a loop from a set of sources are each ~20 lines of
+  sampling (active-shield `src/shield.rs` `loop_flux`, `src/check.rs` `loop_forces`). The coaxial
+  case has `flux_circular_filament`; nothing covers a loop at another pose.
+
 ## Suggestions
 
 Nice-to-haves: features these projects wanted that cfsem doesn't have, with what we built
@@ -187,7 +201,12 @@ instead. Same format as `CORTENFORGE.md`.
   on the period map, Birkhoff-averaged iota; 21 checks in `check`) and fusion-visualizer's tracer.
 - **Charged-particle orbits** (2026-11-06): a Boris pusher for ions and electrons in a filament
   field (Lorentz force, relativistic option), for active radiation shielding, magnetic nozzles
-  and particle confinement. Not built yet; the active-shield project would need it.
+  and particle confinement. Built instead: active-shield `src/trace.rs` (Boris rotation in path
+  length, exact in speed; backtracing by Liouville's theorem for transmission; sphere tracing
+  through the field-free regions), checked against gyroradius, gyro-period and a slab cutoff.
+- **Loop-level helpers** (2026-11-06): flux linkage, self and mutual inductance, and net force
+  and torque for loops at any pose (the oriented-loop kernels already exist), and the stored
+  energy of a coil set. Built instead: active-shield `loop_flux` and `loop_forces`.
 - **Coupling to structures** (2026-11-06): `body_force_density` gives the magnetic load on a
   conductor; the next step, stress in its support, needs an elastic solver (see the
   linear-elastic suggestion in `CORTENFORGE.md`).
