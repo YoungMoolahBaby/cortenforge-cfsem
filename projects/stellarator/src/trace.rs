@@ -136,6 +136,19 @@ impl Tracer {
     /// Trace a line from `start` on phi = 0 for `periods` field periods, measuring its poloidal
     /// angle about the axis (`axis_path`) at every step.
     pub fn trace(&self, f: &Filaments, start: Rz, path: &[Rz], periods: usize) -> Line {
+        let (c, r) = (self.centre, self.lost_radius);
+        self.trace_with(f, start, path, periods, &|_, y| !((y.0 - c.0).hypot(y.1 - c.1) < r))
+    }
+
+    /// As `trace`, with the loss test given: `lost(phi, y)` is checked after every step.
+    pub fn trace_with(
+        &self,
+        f: &Filaments,
+        start: Rz,
+        path: &[Rz],
+        periods: usize,
+        lost: &(dyn Fn(f64, Rz) -> bool + Sync),
+    ) -> Line {
         let h = self.period() / self.steps as f64;
         let mut y = start;
         let a = path[self.steps - 1];
@@ -153,8 +166,7 @@ impl Tracer {
             for k in 0..self.steps {
                 let phi = (p * self.steps + k) as f64 * h;
                 y = Self::rk4(f, phi, y, h);
-                let rho = (y.0 - self.centre.0).hypot(y.1 - self.centre.1);
-                if !(rho < self.lost_radius) {
+                if !(y.0.is_finite() && y.1.is_finite()) || lost(phi + h, y) {
                     line.lost_after = Some(p);
                     break 'outer;
                 }
@@ -194,7 +206,20 @@ pub struct Line {
 impl Line {
     /// Rotational transform per toroidal turn: weighted Birkhoff average and plain mean.
     pub fn iota(&self, n_fp: usize) -> (f64, f64) {
-        let n = self.dtheta.len();
+        iota_of(&self.dtheta, n_fp)
+    }
+
+    /// Birkhoff iota of the first and second half of the line: on a magnetic surface the two
+    /// agree closely; in a chaotic layer they wander apart.
+    pub fn iota_halves(&self, n_fp: usize) -> (f64, f64) {
+        let h = self.dtheta.len() / 2;
+        (iota_of(&self.dtheta[..h], n_fp).0, iota_of(&self.dtheta[h..], n_fp).0)
+    }
+}
+
+fn iota_of(dtheta: &[f64], n_fp: usize) -> (f64, f64) {
+    {
+        let n = dtheta.len();
         if n == 0 {
             return (f64::NAN, f64::NAN);
         }
@@ -206,12 +231,12 @@ impl Line {
             }
         };
         let (mut sw, mut swd) = (0.0, 0.0);
-        for (j, d) in self.dtheta.iter().enumerate() {
+        for (j, d) in dtheta.iter().enumerate() {
             let wj = w((j as f64 + 0.5) / n as f64);
             sw += wj;
             swd += wj * d;
         }
-        let mean = self.dtheta.iter().sum::<f64>() / n as f64;
+        let mean = dtheta.iter().sum::<f64>() / n as f64;
         let k = n_fp as f64 / (2.0 * PI);
         (swd / sw * k, mean * k)
     }

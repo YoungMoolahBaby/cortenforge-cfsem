@@ -124,6 +124,13 @@ None yet.
   `layout` (2026-11-02): all 12 CEM runs shipped below their best evaluated design (by
   0.1-1.2%), and at 1600 evaluations ended 0.3-3.1% under a refined grid where `RicherSa`
   matched it.
+- **works** (2026-11-06): CEM on a 45-parameter design (stellarator `optimize`: three free coils'
+  Fourier displacements, scored by field-line tracing at about 10 s an evaluation). The
+  dummy-MJCF wrapper from coil-designer scaled from 2 to 45 zero-gear motors with no change but
+  generating the MJCF. 24 generations x 24 candidates (noise 0.2, decay 0.93): the population mean
+  rose from -6.0 to 72.1, the best evaluated design (72.50, the score's ceiling) came at
+  evaluation 262 of 577, and 28 candidates (5%) were degenerate (no magnetic axis). Every
+  evaluation logged, so `best_artifact` (entry above) was not needed.
 
 ### `cf-design`
 
@@ -222,6 +229,13 @@ None yet.
   duplicate faces), but the `weld_vertices` at 1 um that marching-cubes output needs (entry
   above) makes them non-manifold (914 edges at 1 mm, 1,506 at 0.5 mm, with 431 / 763 duplicate
   faces). Neither mesher's docs say which post-processing it expects.
+- **bug** (2026-11-06): `mesh_adaptive_par`'s topology depends on where a part sits. The
+  optimized stellarator coils of one field period mesh watertight and manifold, but the same
+  coils turned by 120 or 240 degrees (exact copies) gave 8-10 non-manifold edges (and 2
+  degenerate faces) on 4 of 12, at 1 mm cells, 128 control points (stellarator `best`, before the
+  fix). Snapping moves vertices only, so the edges come from the mesher. Like the uniform
+  mesher's grid-placement entry above. Workaround: mesh one period and rotate the meshes (also 3x
+  faster: 57 s for 18 coils).
 
 ### `mesh` (printability, repair, io)
 

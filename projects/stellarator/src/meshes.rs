@@ -15,7 +15,7 @@ use cortenforge::mesh::repair::{remove_unreferenced_vertices, validate_mesh, wel
 use cortenforge::mesh::types::{IndexedMesh, Point3};
 use rayon::prelude::*;
 
-use crate::coils::{FourierCurve, min_distance};
+use crate::coils::{FourierCurve, RotatingEllipse, min_distance};
 use crate::design;
 use crate::render;
 
@@ -127,8 +127,6 @@ fn deviation(m: &IndexedMesh, curve: &FourierCurve, r_mm: f64) -> (f64, f64) {
 }
 
 pub fn run() {
-    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out").join("mesh");
-    std::fs::create_dir_all(&out).expect("create out/mesh");
     let c = design::baseline();
     let coils = c.coils();
     let r_mm = design::WIRE_RADIUS * MM;
@@ -145,11 +143,34 @@ pub fn run() {
             r_mm,
         );
     }
+    mesh_coils(&c, &coils, "mesh");
+}
 
+/// Sweep, mesh, snap and check every coil of a set; STL and render into `out/<subdir>`.
+pub fn mesh_coils(c: &RotatingEllipse, coils: &[FourierCurve], subdir: &str) {
+    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out").join(subdir);
+    std::fs::create_dir_all(&out).expect("create the mesh folder");
+    let r_mm = design::WIRE_RADIUS * MM;
+    let exact = |k: usize| PI * r_mm * r_mm * coils[k].length(256) * MM;
     // All coils at the chosen settings, one at a time (the mesher is parallel).
     let (n, cell) = (128, 1.0);
     let t0 = Instant::now();
-    let parts: Vec<Part> = coils.iter().map(|cc| sweep(cc, n, r_mm, cell, true)).collect();
+    // Mesh one field period and rotate it: coil k + p x per_period is coil k turned by p field
+    // periods (true of the baseline and of every search design). Meshing the rotated copies
+    // themselves gave 8-10 non-manifold edges on 4 of 12 (the octree mesher depends on how a
+    // part sits on its grid; docs/CORTENFORGE.md).
+    let per_period = c.coils_per_period;
+    let first: Vec<Part> = coils[..per_period].iter().map(|cc| sweep(cc, n, r_mm, cell, true)).collect();
+    let parts: Vec<Part> = (0..coils.len())
+        .map(|k| {
+            let (p, j) = (k / per_period, k % per_period);
+            let angle = 2.0 * PI * p as f64 / c.n_fp as f64;
+            Part {
+                mesh: rotate_z(&first[j].mesh, angle),
+                secs: if p == 0 { first[j].secs } else { 0.0 },
+            }
+        })
+        .collect();
     println!(
         "all {} coils ({n} points, cell {cell} mm, snapped) in {:.1} s:",
         coils.len(),
@@ -163,23 +184,30 @@ pub fn run() {
         worst_v = worst_v.max((p.mesh.signed_volume() / exact(k) - 1.0).abs());
         let (lo, hi) = deviation(&p.mesh, &coils[k], r_mm);
         worst_s = worst_s.max(lo.abs()).max(hi.abs());
-        if k < c.coils_per_period {
+        if k < c.coils_per_period || !(r.is_watertight && r.is_manifold) {
             report(&format!("coil {k}"), p, exact(k), &coils[k], r_mm);
+        }
+        if !(r.is_watertight && r.is_manifold) {
+            println!(
+                "    coil {k}: {} boundary edges, {} non-manifold edges, {} degenerate faces, {} duplicate faces",
+                r.boundary_edge_count, r.non_manifold_edge_count, r.degenerate_face_count, r.duplicate_face_count
+            );
         }
     }
     println!(
         "  every coil watertight and manifold: {all_ok}; worst volume error {worst_v:.2e}, worst surface error {worst_s:.3} mm"
     );
 
-    // Coil-to-coil clearance between centrelines, and the gap left between conductors.
+    // Coil-to-coil clearance between centrelines (every pair), and the gap between conductors.
     let samples: Vec<Vec<[f64; 3]>> = coils.iter().map(|cc| cc.sample(512)).collect();
     let mut gap = f64::INFINITY;
     for k in 0..coils.len() {
-        let j = (k + 1) % coils.len();
-        gap = gap.min(min_distance(&samples[k], &samples[j]));
+        for j in k + 1..coils.len() {
+            gap = gap.min(min_distance(&samples[k], &samples[j]));
+        }
     }
     println!(
-        "closest neighbouring centrelines: {:.1} mm, so {:.1} mm between {:.0} mm conductors",
+        "closest centrelines: {:.1} mm, so {:.1} mm between {:.0} mm conductors",
         gap * MM,
         gap * MM - 2.0 * r_mm,
         2.0 * r_mm
@@ -304,4 +332,14 @@ pub fn sdf_probe() {
         }
         println!("    20,000 random points within 6 mm: own SDF vs true worst {:.4} mm", worst.0);
     }
+}
+
+/// A mesh turned by `angle` about the z axis.
+fn rotate_z(m: &IndexedMesh, angle: f64) -> IndexedMesh {
+    let (s, co) = angle.sin_cos();
+    let mut out = m.clone();
+    for v in &mut out.vertices {
+        *v = Point3::new(v.x * co - v.y * s, v.x * s + v.y * co, v.z);
+    }
+    out
 }

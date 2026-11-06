@@ -6,20 +6,43 @@ use std::time::Instant;
 
 use rayon::prelude::*;
 
+use crate::coils::{Filaments, FourierCurve, RotatingEllipse};
 use crate::design;
+use crate::search;
 use crate::trace::{Line, Rz};
 
 /// Field periods traced per line.
 const PERIODS: usize = 600;
 
 pub fn run() {
+    let c = design::baseline();
+    trace_coils(&c, &c.coils(), "baseline", "poincare.svg");
+}
+
+/// Axis, lines, iota profile and Poincare sections for any coil set built on `c`'s layout
+/// (field periods, centre, current). A line is lost when it comes within
+/// `search::CLEARANCE` of a coil centreline, the same rule the coil search uses.
+pub fn trace_coils(c: &RotatingEllipse, coils: &[FourierCurve], label: &str, file: &str) {
     let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("out");
     std::fs::create_dir_all(&out).expect("create out");
-    let c = design::baseline();
-    let f = design::filaments(&c);
-    let tr = design::tracer(&c);
+    let f = Filaments::new(coils, c.current, design::SEGS, design::WIRE_RADIUS);
+    let tr = design::tracer(c);
+    let pts: Vec<[f64; 3]> = coils.iter().flat_map(|k| k.sample(design::SEGS)).collect();
+    let c2 = search::CLEARANCE * search::CLEARANCE;
+    // Lost: near a coil, or out past the coils (a line escaping outward never nears one).
+    let (centre, out_r) = (tr.centre, tr.lost_radius);
+    let lost = |phi: f64, y: Rz| {
+        if (y.0 - centre.0).hypot(y.1 - centre.1) > out_r {
+            return true;
+        }
+        let (sp, cp) = phi.sin_cos();
+        let p = [y.0 * cp, y.0 * sp, y.1];
+        pts.iter()
+            .any(|q| (p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2) < c2)
+    };
+    println!("{label}:");
     println!(
-        "baseline: n_fp {}, {} coils, rc {} m, ellipse {} x {} m, helix shift R {:+} Z {:+} m, {:.2} kA-turns, B0 {} T",
+        "  layout: n_fp {}, {} coils, rc {} m, starting ellipse {} x {} m, helix shift R {:+} Z {:+} m, {:.2} kA-turns, B0 {} T",
         c.n_fp,
         c.n_coils(),
         c.rc,
@@ -43,7 +66,10 @@ pub fn run() {
             p.det
         );
     }
-    let ax = *fps.iter().find(|p| p.elliptic()).expect("an elliptic axis");
+    let Some(ax) = fps.iter().find(|p| p.elliptic()).copied() else {
+        println!("  no elliptic axis");
+        return;
+    };
     let path = tr.axis_path(&f, ax.rz);
     let half = path[tr.steps / 2 - 1];
     println!(
@@ -57,10 +83,10 @@ pub fn run() {
 
     // Lines from the axis outward along the phi = 0 midplane.
     let t0 = Instant::now();
-    let starts: Vec<f64> = (1..=24).map(|k| 0.0025 * k as f64).collect();
+    let starts: Vec<f64> = (1..=36).map(|k| 0.0025 * k as f64).collect();
     let lines: Vec<Line> = starts
         .par_iter()
-        .map(|d| tr.trace(&f, (ax.rz.0 + d, 0.0), &path, PERIODS))
+        .map(|d| tr.trace_with(&f, (ax.rz.0 + d, 0.0), &path, PERIODS, &lost))
         .collect();
     println!(
         "{} lines x {} periods ({:.0} toroidal turns) in {:.1} s",
@@ -95,15 +121,16 @@ pub fn run() {
         println!("outermost confined start: {:.1} mm from the axis", d * 1e3);
     }
 
-    let svg = svg(&c, &ax.rz, half, &starts, &lines);
-    let p = out.join("poincare.svg");
+    let svg = svg(c, label, &ax.rz, half, &starts, &lines);
+    let p = out.join(file);
     std::fs::write(&p, svg).expect("write svg");
     println!("wrote {}", p.display());
 }
 
 /// Two Poincare panels (phi = 0, half period) and the iota profile.
 fn svg(
-    c: &crate::coils::RotatingEllipse,
+    c: &RotatingEllipse,
+    label: &str,
     axis: &Rz,
     half: Rz,
     starts: &[f64],
@@ -121,7 +148,7 @@ fn svg(
     let _ = writeln!(s, r##"<rect width="100%" height="100%" fill="#ffffff"/>"##);
     let _ = writeln!(
         s,
-        r##"<text x="10" y="20" font-weight="bold">Toy stellarator: n_fp {}, {} modular coils, Poincare sections ({} periods a line) and rotational transform</text>"##,
+        r##"<text x="10" y="20" font-weight="bold">Toy stellarator ({label}): n_fp {}, {} modular coils, Poincare sections ({} periods a line) and rotational transform</text>"##,
         c.n_fp,
         c.n_coils(),
         PERIODS

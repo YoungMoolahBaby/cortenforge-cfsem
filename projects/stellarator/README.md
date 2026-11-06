@@ -22,11 +22,18 @@ checked with a Hall probe.
   results, 21 checks (about 25 s). Exits 1 on any failure.
 - `scan`: axis and rotational transform across coil shapes (field periods, ellipse, helical
   shift); how the baseline was picked (about 70 s).
-- `trace`: the baseline's fixed points, 24 field lines for 600 periods, the iota profile and
-  Poincare sections at phi = 0 and the half period; writes `out/poincare.svg` (about 80 s).
-- `mesh`: the coils swept, meshed, snapped and checked; writes `out/mesh/coils.stl` (mm, 610k
-  faces) and a render `out/mesh/coils.bmp` (about 3.5 min).
+- `trace`: the baseline's fixed points, 36 field lines (2.5-90 mm out) for 600 periods, the iota
+  profile and Poincare sections at phi = 0 and the half period; a line is lost within 10 mm of a
+  coil centreline or 120 mm from the coil centre. Writes `out/poincare.svg` (about 2 min).
+- `mesh`: the coils swept, meshed, snapped and checked; writes `out/mesh/coils.stl` (mm, 604k
+  faces) and a render `out/mesh/coils.bmp` (about 2 min).
 - `mesh-probe`, `sdf-probe`: the mesher findings below, reproduced on one coil.
+- `opt-probe`: the baseline through the coil search's score, line by line.
+- `optimize [generations] [population] [seed]`: the coil search (CEM, default 24 x 24, about
+  1.5 h); writes `out/opt/evals.csv` and `out/opt/best.txt`.
+- `best [design.txt] [--no-trace] [--no-mesh]`: a saved design (default `out/opt/best.txt`;
+  run 1's winner is kept in `designs/run1.txt`) at full resolution: `trace` into
+  `out/poincare_best.svg` and `mesh` into `out/mesh_best/` (about 4 min).
 
 ## The baseline (`src/design.rs`)
 
@@ -110,7 +117,10 @@ toroidal turns) each, 74 s:
   12-island resonance. The line at 57.5 mm stays confined but outside it, past the separatrix.
 - Cost: 6.9M field evaluations (2,304 filaments, one point each) in 74 s on 12 threads, about
   0.13 ms an evaluation a thread.
-
+- Since the coil search, `trace` uses the search's loss rule (within 10 mm of a coil centreline,
+  or 120 mm from the coil centre) and runs lines to 90 mm. Rerun that way the baseline gives the
+  same table: confined to 52.5 mm without a gap, 55 mm lost (it nears a coil), 57.5 mm outside
+  the separatrix, beyond lost.
 ## Coils to STL (`mesh`, 2026-11-06)
 
 Each coil: 128 points on its Fourier curve into `Solid::pipe_spline` (4 mm radius, in mm),
@@ -133,15 +143,77 @@ minus r, 8192 samples) and pi r^2 L.
   a cell off the surface (median 0.0075 mm at 0.5 mm cells). Snapping fixes that; what is left in
   the volume is the flat facets cutting chords across the round tube (-0.87% at 1 mm, -0.20% at 0.5 mm).
 - No weld: the octree output is clean, and `weld_vertices` made it non-manifold.
-- All 18 coils: watertight and manifold, surface within 0.015 mm, volume at worst -1.11% (the
-  faceting), 143 s. Closest neighbouring centrelines 62.2 mm: 54.2 mm between conductors.
+- All 18 coils: one field period (6 coils) meshed and turned into the other two, since the
+  octree mesher gave 8-10 non-manifold edges on 4 of the 12 rotated copies of the optimized coils
+  when they were meshed in place (`docs/CORTENFORGE.md`). Watertight and manifold, surface within
+  0.015 mm, volume at worst -1.11% (the faceting), 57 s. Closest centrelines 62.2 mm: 54.2 mm
+  between conductors.
+
+## Coil search (`optimize`, 2026-11-06)
+
+**Design space** (`src/search.rs`). The three coils of a half period are free; the other fifteen
+follow by stellarator symmetry (rotate by pi about x and run backwards) and the field period, so
+every candidate keeps both symmetries. Built from the baseline's three coils, the set's field
+matches the baseline's to 3.3e-14. Each free coil is the baseline coil plus a displacement in
+its own frame (e_R, e_phi, e_Z) to Fourier order 2: 45 numbers, each a fraction of 10 / 15 / 8 mm
+for orders 0 / 1 / 2. The e_phi modes bend coils out of their planes.
+
+**Score.** Twelve lines start 5-60 mm out from the axis and run 300 periods (64 filaments a coil,
+120 RK4 steps a period). A line is good if it stays 10 mm from every coil centreline (4 mm
+conductor plus former) and the Birkhoff iota of its two halves agree to 1e-3. Score = the
+outermost good line in an unbroken run from the axis (mm) + 50 x the lowest iota on those lines
+(capped at 0.25), minus penalties below a 12 mm bend radius or 30 mm between centrelines. The
+baseline scores 49.26 (45 mm, iota 0.105 to 0.085), about 10 s an evaluation.
+
+Calibrating the score (`opt-probe`) took three fixes, and a fourth came after the run:
+- 60 RK4 steps a period (fine for one period, 7.6e-8 m) let outer lines drift over 300 periods:
+  their iota climbed from one half to the other (0.0919 -> 0.0941 at 40 mm) and good surfaces read
+  as chaos. 120 steps matches the full-resolution trace; 64 or 128 filaments made no difference.
+- 150 periods is too short: a half then covers about two poloidal turns and real surfaces at
+  40-45 mm fail the halves test (1.0e-3 and 1.5e-3); at 300 periods they read 1.7e-4 and 7.8e-4,
+  and the chaotic band at 50 mm 2.6e-3.
+- 15 mm clearance cut the baseline's good region to 30 mm: surfaces do pass within 15 mm of the
+  coils near the half period. 10 mm leaves room for a 4 mm conductor and a thin former.
+- After the run: a line escaping outward never nears a coil, so the loss test now also drops lines
+  120 mm from the coil centre. The best design is unaffected (its lines stay within 74 mm).
+
+**Run 1.** sim-rl's CEM, 24 generations x 24 candidates, seed 1, noise 0.2 decaying 0.93, through
+the dummy-MJCF wrapper from coil-designer; every evaluation logged (CEM's `best_artifact` is an
+elite mean it never evaluated). 577 evaluations in 94 min; 28 (5%) had no elliptic axis. The
+population mean rose from -6.0 to 72.1 and the best, 72.50, came at evaluation 262 (generation
+11). That is the score's ceiling: the good region reached the last line (60 mm) and iota passed
+the 0.25 cap, so run 1 ended limited by the score, not the coils.
+
+**The winner at full resolution** (`best`; 128 filaments, 600 periods, lines to 90 mm, same loss
+rule):
+
+| | baseline | optimized |
+|---|---|---|
+| axis R at phi = 0 | 0.26440 m | 0.25231 m |
+| iota on axis (Jacobian / traced 2.5 mm) | 0.10503 / 0.10497 | 0.26918 / 0.26921 |
+| iota at the edge of the good region | 0.0822 (52.5 mm, falling) | 0.2927 (65 mm, rising) |
+| confined without a gap, outboard midplane | 52.5 mm | 65 mm |
+| surface height / width near the axis, phi = 0 / half | 0.70 / 1.19 | 0.68 / 1.88 |
+| coil lengths (mm) | 460.3 x 3 | 470.5 / 451.7 / 486.8 |
+| out of plane | 0 | up to 9.8 / 14.5 / 5.6 mm |
+| tightest bend, closest centrelines | 16.0 mm, 62.2 mm | 12.1 mm, 52.0 mm |
+
+- Iota is 2.6x the baseline's and now rises outward (reversed shear). The good region is 25%
+  wider; past 65 mm lines are lost within 3 periods by nearing a coil.
+- Dashed rings in `out/poincare_best.svg` are island chains where iota passes simple ratios
+  (likely 3/11 = 0.2727 near 27.5 mm and 2/7 = 0.2857 near 55-57.5 mm).
+- The bend limit is active: the tightest bend sits at 12.1 mm against the 12 mm floor.
+- Coils mesh watertight and manifold (one period meshed and turned), surface within 0.015 mm,
+  `out/mesh_best/coils.stl` (625k faces).
 
 ## Plan
 
 1. `check` (done): coils, field, tracer.
 2. Toy coils to surfaces (done): scan, axis, iota profile, Poincare sections.
 3. Coils to STL with cf-design (done): swept, meshed, snapped, checked.
-4. Next: score the surfaces (volume inside the last closed surface, iota away from low-order
-   rationals, a smooth edge), penalize curvature, coil-to-coil distance and forces (cfsem body
-   force), and let sim-opt / sim-rl move the Fourier coefficients; then printable coil formers,
-   inductance and a Hall-probe field map to check a build.
+4. Coil search (run 1 done): CEM on 45 Fourier coefficients, iota 0.105 -> 0.269, good region
+   52.5 -> 65 mm.
+5. Next: a score that can't saturate (lines out to 90 mm, iota cap raised or replaced by a
+   target away from low-order rationals, island width), then more runs and seeds and sim-opt's
+   annealers for comparison; coil forces (cfsem body force) and inductance; printable coil
+   formers; a Hall-probe field map to check a build.

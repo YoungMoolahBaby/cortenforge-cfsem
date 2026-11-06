@@ -53,8 +53,10 @@ Fourier coils, cfsem's straight-filament field for them and an RK4 field-line tr
 fixed point and nested surfaces out to about 52 mm, iota 0.105 on axis to 0.082 at the edge
 (ragged at iota = 1/12); `mesh` sweeps the coils with cf-design's `pipe_spline`, meshes them with
 the octree mesher and snaps the vertices onto the surface (within 0.015 mm, watertight and
-manifold, STL). Next: the coil search (sim-opt / sim-rl on the Fourier coefficients), then
-printable formers.
+manifold, STL). Coil search run 1 (`optimize`, sim-rl CEM on 45 Fourier coefficients of three
+free coils, the rest by symmetry; 577 evaluations, 94 min): iota 0.105 -> 0.269 on the axis
+(rising to 0.293 at the edge), good region 52.5 -> 65 mm, coils bent up to 14.5 mm out of plane;
+the score saturated, so next is a score that can't, then coil forces, formers and a build.
 The other projects are a README each until they start.
 
 ## Order

@@ -56,6 +56,71 @@ impl FourierCurve {
         d
     }
 
+    pub fn second(&self, t: f64) -> [f64; 3] {
+        let mut d = [0.0; 3];
+        for (k, dk) in d.iter_mut().enumerate() {
+            for m in 1..=self.order() {
+                let mf = m as f64;
+                let (s, c) = (mf * t).sin_cos();
+                *dk -= mf * mf * (self.c[k][m] * c + self.s[k][m] * s);
+            }
+        }
+        d
+    }
+
+    /// Curvature |x' x x''| / |x'|^3 at t (1/m).
+    pub fn curvature(&self, t: f64) -> f64 {
+        let (d1, d2) = (self.tangent(t), self.second(t));
+        let c = [
+            d1[1] * d2[2] - d1[2] * d2[1],
+            d1[2] * d2[0] - d1[0] * d2[2],
+            d1[0] * d2[1] - d1[1] * d2[0],
+        ];
+        let n1 = (d1[0] * d1[0] + d1[1] * d1[1] + d1[2] * d1[2]).sqrt();
+        (c[0] * c[0] + c[1] * c[1] + c[2] * c[2]).sqrt() / n1.powi(3)
+    }
+
+    /// The same curve padded (or truncated) to `order`.
+    pub fn with_order(&self, order: usize) -> Self {
+        let mut f = FourierCurve::zeros(order);
+        for k in 0..3 {
+            for m in 0..=order.min(self.order()) {
+                f.c[k][m] = self.c[k][m];
+                f.s[k][m] = self.s[k][m];
+            }
+        }
+        f
+    }
+
+    /// Rotated by `angle` about the z axis.
+    pub fn rotate_z(&self, angle: f64) -> Self {
+        let (s, c) = angle.sin_cos();
+        let mut f = self.clone();
+        for m in 0..=self.order() {
+            f.c[0][m] = c * self.c[0][m] - s * self.c[1][m];
+            f.c[1][m] = s * self.c[0][m] + c * self.c[1][m];
+            f.s[0][m] = c * self.s[0][m] - s * self.s[1][m];
+            f.s[1][m] = s * self.s[0][m] + c * self.s[1][m];
+        }
+        f
+    }
+
+    /// The stellarator-symmetric partner: rotated by pi about the x axis, (x, y, z) ->
+    /// (x, -y, -z), and run backwards (t -> -t) so the partner's current keeps B_phi's sign.
+    pub fn mirror(&self) -> Self {
+        let mut f = self.clone();
+        for m in 0..=self.order() {
+            // t -> -t flips the sin terms; the rotation flips y and z.
+            f.c[0][m] = self.c[0][m];
+            f.s[0][m] = -self.s[0][m];
+            f.c[1][m] = -self.c[1][m];
+            f.s[1][m] = self.s[1][m];
+            f.c[2][m] = -self.c[2][m];
+            f.s[2][m] = self.s[2][m];
+        }
+        f
+    }
+
     /// `n` points at t = 2 pi k / n (the curve is closed; the first point is not repeated).
     pub fn sample(&self, n: usize) -> Vec<[f64; 3]> {
         (0..n)
