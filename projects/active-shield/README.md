@@ -137,6 +137,10 @@ magnet or its cryocoolers fail (Globus & Strout's OLTARIS water curve from its 7
   width)", Zhao et al. 2025). The mothership takes MgB2 wire instead (~200 A/mm^2 at ~20 K and
   1-2 T over the run's 6.15e12 A m: 0.25 Mt, ~1.5e7 km of 2 mm^2 wire, Mg from the Moon), cooled
   behind an ~80 K intercept shield for ~40 MW (judgement).
+- Structure material (mothership pass 8): the sizing here assumes carbon fibre (1,200 MPa, 562
+  MJ/kg to make); the mothership compares eight materials at ~20 K and takes unidirectional glass
+  fibre in epoxy (~500 MPa, from lunar glass and asteroid carbon): 0.93 Mt instead of 0.30 for the
+  50 T m magnet, but ~1/14 of the energy a kg, and it contracts with the wire.
 - Magnet leftovers through the 40 m shells: 399, 171, 100, 66, 48, 37, 27, 17, 12, 9 mSv/yr of
   primaries at 10, 20, 30, 40, 50, 60, 75, 100, 125, 150 T m.
 
