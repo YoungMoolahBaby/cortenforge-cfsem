@@ -21,7 +21,16 @@ How to read it:
 
 ## Probe results
 
-None yet.
+- **sim-core's fluid forces at low Reynolds number** (2026-11-09; `cargo run --release -p
+  microswimmers -- check`, section 6; glycerol, `viscosity="1.41"`, `density="0"`, 1 us steps).
+  A free 1 mm sphere with `fluidshape="ellipsoid"` settles to Stokes' drag 6 pi mu a and torque
+  8 pi mu a^3 (1.6e-14, 4.7e-15). With the default body model (inertia box) it is 22.5% low on
+  drag and 53.5% low on torque, which is what that model's formula gives for a sphere (its
+  equivalent box is 1.549 a a side). A free helix of 32 capsules (R 1.5 mm, pitch 6 mm, wire
+  0.3 mm, 2 turns) twisted about its axis doesn't advance at all: 5e-18 of its pitch a turn
+  (ellipsoid), 2e-21 (inertia box). A regularized-Stokeslet model checked to 1.25% against exact
+  spheroids gives 0.2455. Its turning drag is 2.61x the model's (ellipsoid) and 3.81x (inertia
+  box). Fluid density 1261 adds an advance under 2e-7, of either sign.
 
 ## Friction log
 
@@ -64,6 +73,19 @@ None yet.
   torque], so code ported from MuJoCo would apply forces as torques silently. Not run here (the
   cart applies its point forces through `cb_passive` and `mj_jac` instead); one doc line would
   settle it.
+- **works** (2026-11-09): `xfrc_applied` is [torque, force], now confirmed by a run
+  (microswimmers `check` 6): a free sphere given a force in entries 3-5 moves without turning
+  (0 rad/s) and settles to Stokes' drag to 1.6e-14. The docs gap above stands.
+- **API** (2026-11-09): the viscous part of both fluid models is the same in every direction.
+  Per geom it is beta 3 pi eq_d v, with eq_d from the mean semi-axis (forward/passive.rs:237-243);
+  per body it is 3 pi beta d v (passive.rs:103-112). The direction-dependent terms (blunt,
+  slender, Kutta, Magnus) all scale with the fluid's density, which is the fast-flow regime. So a
+  slender piece is dragged equally along and across itself, and a helix built of pieces can't
+  swim in syrup or as a microrobot (low Reynolds number), where swimming comes entirely from the
+  drag across a wire being about twice the drag along it. Summing pieces as if each were alone
+  also overstates drag (2.61x for a helix's turning; see Probe results). These are MuJoCo's
+  documented models, so this is not a bug, but swimmers, flagella, cilia and particles settling in
+  thick fluids are out of reach. See Suggestions.
 
 ### `sim-opt`
 
@@ -323,3 +345,13 @@ None yet.
 - **Mesh post-processing for the octree mesher** (2026-11-06): snap vertices onto the SDF's zero
   set, as an option of `mesh_adaptive_par`. Built instead: two Newton steps a vertex along the
   SDF gradient (stellarator `mesh`), 0.44 mm worst error down to 0.015 mm.
+- **Stokes-flow bodies** (2026-11-09): low Reynolds number (microrobots, swimmers in syrup,
+  particles settling). Either (a) slender-body viscous drag per geom, with different
+  coefficients along and across a capsule set from its aspect ratio as in resistive force
+  theory, or better (b) a body whose fluid force is a given 6 x 6 resistance matrix times its
+  velocity relative to the fluid, with the matching velocity derivative so implicit integrators
+  stay stable when a light body sits in a thick fluid. (b) also captures shielding between a
+  body's own parts, which (a) can't (see the `sim-core` API entry). Built instead: a
+  regularized-Stokeslet model in plain Rust (microswimmers `check`, within 1.25% of exact
+  spheroids). Its resistance matrix will go in through `xfrc_applied` (microswimmers `steer`,
+  planned).

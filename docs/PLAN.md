@@ -67,6 +67,14 @@ are sharper and lighter); `size` finds a magnet + water hybrid ~3x lighter than 
 stored; `failsafe` sizes the mothership's design: 4.72 t/m^2 of water (50 mSv/yr if the magnet
 fails) plus a 50 T m magnet run warm at ~65 K, 11.4 Mt, 55 MW, ~18 kt of TNT stored. Next:
 transport for the secondaries, the support structure, quench protection.
+microswimmers started (2026-11-09): corkscrew swimmers in a rotating field, the physics behind
+targeted drug delivery. Its README leads with what it's for, shows how it works and names what's
+unsolved. `check` (23 of 23, ~65 s): a regularized-Stokeslet model in plain Rust, within 0.84%
+of Stokes' sphere and, extrapolated from two spacings, 1.25% of exact spheroids. Resistive force
+theory gets the speed (Gray-Hancock, within 6.1%) or the torque (Lighthill, 6-15% low) but not
+both. sim-core's fluid model can't swim a helix: its viscous drag is the same in every direction
+(advance 5e-18 against the model's 0.2455 of the pitch a turn), so the swimmer's forces will go in
+through `xfrc_applied`. cfsem Helmholtz checks. Next: `swim`.
 The other projects are a README each until they start.
 
 ## Order
