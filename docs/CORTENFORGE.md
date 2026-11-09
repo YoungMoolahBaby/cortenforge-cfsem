@@ -134,6 +134,13 @@ How to read it:
   problem (a looser constraint) it was `Sa`'s seed that stuck, at 35.8. Each sits in a region the
   design decoder scores near zero. A restart on stagnation, or multiple starts, would save users
   running seeds by hand.
+- **works / API** (2026-11-09): `RicherSa` on a 3-parameter swimmer design (microswimmers
+  `shape`: helix radius, pitch angle and wire, scored by the climb at 2 mT; 60 evaluations, seed
+  1, one run for each of 2, 3 and 4 turns; a 4 x 4 x 3 grid as the reference). It beat the grid
+  at 2 turns (+2.10 against +1.86 mm/s) and 3 turns (+0.76 against +0.66). At 4 turns it stuck
+  at a wide, steep helix (-0.74, where the grid found +0.96), the same kind of stuck seed as the
+  entry above. The dummy-model setup carried over unchanged from coil-designer. A cheap grid
+  alongside, keeping the better result, was the guard.
 
 ### `sim-rl`
 
@@ -258,6 +265,20 @@ How to read it:
   fix). Snapping moves vertices only, so the edges come from the mesher. Like the uniform
   mesher's grid-placement entry above. Workaround: mesh one period and rotate the meshes (also 3x
   faster: 57 s for 18 coils).
+- **bug** (2026-11-09): `mesh_adaptive_par` folds triangles on a thin, curved `pipe_spline`
+  (`cargo run --release -p microswimmers -- shape probe`). The case is a 2-turn helix of wire
+  radius 0.254 mm (helix radius 1.56 mm, pitch 12.2 mm) at 0.051 mm cells (5 per wire radius).
+  The mesh is watertight and manifold, but `validate_for_printing` (SLA) reports 101 overlapping
+  triangle pairs and 4,681 thin-wall regions of 0.000 mm. A straight `pipe_spline` or a capsule
+  of the same radius at the same cells has none (thinnest 0.117 mm raw, 0.279 mm snapped).
+  Snapping the vertices onto the surface doesn't help (102 pairs, 4,915 regions). The uniform
+  `mesh` on the same helix, welded at 10 nm, has no thin walls and 26 overlap flags, but takes
+  695 s against 6 s. On the whole swimmer (helix, strut, head, pocket) the octree mesher gives
+  102 pairs and 4,815 thin regions in 155 s; uniform marching cubes give 31 flags and 0 thin
+  regions (thinnest 0.397 mm, the 0.4 mm wall as designed) in 918 s. The flags left on the
+  welded marching-cubes meshes are probably the touching slivers of the `mesh` self-intersection
+  entry below; I didn't inspect them. Workaround: the uniform mesher for the printed part
+  (microswimmers `shape part`).
 
 ### `mesh` (printability, repair, io)
 
@@ -310,6 +331,15 @@ How to read it:
   0.005 mm at the cusp, at x = 0, y = +-3.4 mm, located correctly). The wall between the channels
   is under 1 mm for |y| < 5.2 mm; joining the channels there makes the part printable. The
   location field is what made it quick to act on.
+- **works** (2026-11-09): with `PrinterConfig::sla_default` on the microswimmer (microswimmers
+  `shape part`, marching cubes welded at 10 nm), every thin-wall flag landed on the one wall
+  designed at the preset's 0.4 mm minimum (0.397-0.398 mm, faceting), as warnings, and nothing
+  else. The preset's 0.4 mm is what set the head's size (2.9 mm across a 2 mm magnet).
+- **bug** (2026-11-09): the self-intersection count isn't stable. The same part with design
+  numbers differing only in the fifth digit gave 31 and 92 overlapping pairs (welded marching
+  cubes, 0.051 mm cells), which fits the touching-sliver false positives above rather than real
+  crossings. The issue carries no location (`location: None`), so the pairs can't be found from
+  the report.
 
 ### Platform
 

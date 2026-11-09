@@ -7,6 +7,9 @@ license.workspace = true
 [dependencies]
 cfsem.workspace = true
 cortenforge.workspace = true
+# The facade drops cf-design's `parallel-meshing` (Solid::mesh_adaptive_par); naming the crate turns
+# it back on (as in stellarator).
+cortenforge-design = { version = "=0.9.0", features = ["parallel-meshing"] }
 nalgebra.workspace = true
 coil-designer = { path = "../coil-designer" }
 rayon = "1.12"

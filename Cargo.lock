@@ -2063,6 +2063,7 @@ dependencies = [
  "cfsem",
  "coil-designer",
  "cortenforge",
+ "cortenforge-design",
  "nalgebra 0.34.2",
  "rayon",
 ]

@@ -63,7 +63,7 @@ Something people can watch and understand is easier to trust than a promise.
 ## Plan
 
 `cargo run --release -p microswimmers -- <mode>`, modes added as they are built (so far:
-`check`, `swim`, `coils`).
+`check`, `swim`, `coils`, `shape`).
 
 1. `check` (done, results below): the physics before anything is built on it.
    - The reference model: regularized Stokeslets (Cortez, Fauci and Medovikov, Phys. Fluids 17,
@@ -88,8 +88,9 @@ Something people can watch and understand is easier to trust than a promise.
    model): whether they fit, how even the rotating field is over the jar, inductance, the drive
    voltage at the rotation rates `swim` needs, power and heating, and the leftover gradient's
    pull against the twist.
-4. `shape`: the helix (radius, pitch, turns, wire thickness) optimized with sim-opt for speed or
-   step-out, under printability (cf-design `pipe_spline`, mesh-printability). Writes the STL.
+4. `shape` (done, results below): the helix (radius, pitch angle, wire, turns) chosen for the
+   fastest climb at 2 mT with sim-opt (RicherSA, a grid for reference), printable in resin; then
+   the part as a cf-design solid, meshed, checked with mesh-printability (SLA) and written as STL.
 5. `steer`: sim-core with gravity, buoyancy and contact with the jar and a printed maze; a
    controller tilts the rotation plane to follow a path (sim-rl if a hand-tuned one isn't
    enough).
@@ -336,7 +337,94 @@ and swimming speed both scale with B0, so the ratio holds at any field.
 Not yet: the coil formers (coil-designer's tooling), the driver electronics, and the field
 measured with a Hall probe.
 
-Next: `shape`.
+## Shape (`shape`, 2026-11-09)
+
+In plain words: a printable head for the magnet has to be thicker than `swim`'s, and on that
+head the first design barely climbs at 2 mT (0.15 mm/s). The search found a longer, more open
+corkscrew of thinner wire: two turns, 3.6 mm across, a 12.2 mm pitch, 0.51 mm wire and 28.8 mm
+long. It climbs at 2.12 mm/s at 2 mT, needs only 1.27 mT to climb at all, and tops out 50%
+faster (5.84 mm/s at 2 mT, 14.6 at 5 mT). The part meshes watertight, and the resin check finds
+nothing it shouldn't. The search takes about 3 min; the STL, about 15.
+
+Modes: `shape` (the search, writes `out/shape/evals.csv` and `best.txt`); `shape part [cell mm]
+[octree [snap steps]]` (the part for `best.txt`, written to `out/shape/swimmer.stl`); `shape
+probe` (where the octree mesher's defects come from, below). `out/` is git-ignored.
+
+**The head.** CortenForge's SLA preset (`PrinterConfig::sla_default`) wants walls of at least
+0.4 mm, so the 2 x 2 mm magnet (0.05 mm clearance) sits in a head 2.9 mm across. `swim`'s head
+was 2.5 mm, with 0.25 mm walls. The magnet goes in through the nose, so the nose is flat and
+open (sealed after); the model now has that flat nose too.
+
+**The search.** The score is the climb at 2 mT: top speed (at step-out) less sinking, axis
+upright.
+
+- Limits: neighbouring turns at least 0.5 mm apart, at most 30 mm long.
+- Box: helix radius 1-3 mm, pitch angle 35-70 deg, wire 0.5-1.0 mm across; 2, 3 or 4 turns.
+- Each evaluation uses the model at 6 and 8 points round the wire, extrapolated (0.7 s). On the
+  baseline it reads 1.8% low on top speed and equal on sinking against the full model (12 and
+  16 round).
+- CortenForge's RicherSA (sim-opt, 60 evaluations, one seed) runs for each number of turns,
+  with a 4 x 4 x 3 grid as a reference.
+
+| turns | RicherSA best, climb mm/s | grid best, climb mm/s | the better, full model |
+|---|---|---|---|
+| 2 | +2.10 (R 1.56 mm, 38.9 deg, wire 0.51 mm) | +1.86 (R 1.67 mm, 46.7 deg, 0.50 mm) | +2.12 |
+| 3 | +0.76 (R 1.42 mm, 50.7 deg, 0.64 mm) | +0.66 (R 1.00 mm, 46.7 deg, 0.50 mm) | +0.84 |
+| 4 | -0.74 (R 2.10 mm, 66.8 deg, 0.51 mm) | +0.96 (R 1.00 mm, 46.7 deg, 0.50 mm) | +1.02 |
+
+- RicherSA beat the grid at 2 and 3 turns but missed badly at 4, stuck at a wide, steep helix
+  that steps out at only 0.84 Hz per mT. Keeping the better of the two guards against that.
+  With one seed and 60 evaluations, the winner is the best found, not a proven optimum.
+- The winner sits near the limits: the thinnest wire allowed, nearly the longest swimmer, and a
+  low pitch angle. Printing thinner wire or allowing a longer swimmer would buy more.
+
+**The chosen swimmer** (full model) against the baseline (`swim`'s helix on the printable head):
+
+| | baseline | chosen |
+|---|---|---|
+| helix | R 1.5 mm, pitch 6 mm, 0.6 mm wire, 3 turns | R 1.56 mm, pitch 12.19 mm, 0.51 mm wire, 2 turns |
+| length, mass | 22.5 mm, 73.8 mg | 28.8 mm, 70.2 mg |
+| advance a turn / pitch | 0.1909 | 0.1358 |
+| step-out | 1.696 Hz per mT | 1.764 Hz per mT |
+| top speed at 2 mT | 3.89 mm/s | 5.84 mm/s |
+| sinking upright / level | 3.74 / 3.03 mm/s | 3.71 / 2.85 mm/s |
+| climb at 2 mT | +0.15 mm/s | +2.12 mm/s |
+| least field to climb | 1.92 mT | 1.27 mT |
+
+It advances less of its pitch a turn, but its pitch is twice as long, so it covers more ground a
+turn for about the same twisting effort.
+
+**The part** (cf-design, mm): the helix swept with `pipe_spline`, a strut of the same wire from
+its end to the head, the head as a capsule cut flat, and the magnet pocket open at the nose.
+
+- Meshed with the uniform marching-cubes mesher at 0.051 mm cells, welded at 10 nm: 114,156
+  faces, watertight and manifold, in 915 s.
+- Volume 19.39 mm^3, against the model's 19.23 mm^3 less the pocket; the strut adds the rest.
+- SLA check, printed upright: every thin-wall flag is on the head's wall, at 0.397-0.398 mm (the
+  0.4 mm wall as designed, less faceting), none critical.
+- Two overhang regions are critical, the largest 10.3 mm^2 at up to 83 deg. Resin printing
+  handles overhangs with supports, which this check doesn't model.
+- The check also flags 92 overlapping triangle pairs. On a design differing only in the fifth
+  digit (`shape probe`) it flagged 31, so these look like the check's known touching-sliver
+  false positives (docs/CORTENFORGE.md); not inspected.
+
+**Why the uniform mesher** (`shape probe`, 0.051 mm cells). CortenForge's fast octree mesher
+folds triangles on the thin curved sweep:
+
+| piece | octree: overlap pairs, thin walls under 0.2 mm | marching cubes: same | time, octree / marching cubes |
+|---|---|---|---|
+| capsule, 10 mm, wire radius | 0, 8 (0 snapped) | 0, 0 | 0.0 / 0.0 s |
+| straight `pipe_spline`, 10 mm | 0, 8 (0 snapped) | 0, 0 | 1.5 / 9.3 s |
+| the helix wire | 101, 4681 (0.000 mm) | 26, 0 | 6.0 / 695 s |
+| the whole part | 102, 4815 (0.000 mm) | 31, 0 | 155 / 918 s |
+
+Snapping vertices onto the surface doesn't fix the helix, so the folds come from the mesher.
+Logged in docs/CORTENFORGE.md (`cf-design`).
+
+Not yet: a print. The strut is in the part but not in the model, and the glue that seals the
+nose is in neither.
+
+Next: `steer`.
 
 ## What's still unsolved (in the field, not just here)
 

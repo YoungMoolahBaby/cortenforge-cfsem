@@ -7,6 +7,7 @@ mod check;
 mod coils;
 mod helix;
 mod rft;
+mod shape;
 mod simcore;
 mod stokeslet;
 mod swim;
@@ -17,13 +18,18 @@ fn main() {
     match mode.as_str() {
         "swim" => swim::run(),
         "coils" => coils::run(),
+        "shape" => match std::env::args().nth(2).as_deref() {
+            Some("part") => shape::run_part(),
+            Some("probe") => shape::run_probe(),
+            _ => shape::run(),
+        },
         "check" => {
             if !check::run() {
                 std::process::exit(1);
             }
         }
         m => {
-            eprintln!("unknown mode {m}; modes: check, swim, coils");
+            eprintln!("unknown mode {m}; modes: check, swim, coils, shape");
             std::process::exit(2);
         }
     }

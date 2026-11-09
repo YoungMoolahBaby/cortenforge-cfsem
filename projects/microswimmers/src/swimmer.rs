@@ -1,5 +1,6 @@
-//! The desk swimmer: a printed helix with a capsule head on its axis holding a magnet magnetized
-//! across the axis. A thin strut joins them (its drag ignored).
+//! The swimmer: a printed helix with a head on its axis holding a magnet magnetized across the
+//! axis. A thin strut joins them (its drag ignored). The head is a capsule (`swim`'s desk
+//! swimmer) or a "bullet" with a flat, open nose (`shape`: the magnet goes in through the nose).
 
 use std::f64::consts::PI;
 use std::time::Instant;
@@ -7,8 +8,8 @@ use std::time::Instant;
 use cfsem::MU_0;
 use nalgebra::Matrix6;
 
-use crate::helix::{Helix, V3, capsule_points};
-use crate::stokeslet::{self, EPS_C, extrapolate};
+use crate::helix::{Helix, V3, bullet_points, capsule_points};
+use crate::stokeslet::{self, EPS_C, extrapolate_n};
 
 /// CG tolerance (relative residual).
 const TOL: f64 = 1e-10;
@@ -16,13 +17,15 @@ const TOL: f64 = 1e-10;
 #[derive(Clone, Copy, Debug)]
 pub struct Swimmer {
     pub helix: Helix,
-    /// (m) the head: a capsule of this radius...
+    /// (m) the head's radius...
     pub head_radius: f64,
-    /// (m) ...and this straight length (plus its round ends).
+    /// (m) ...and straight length; below it a hemisphere, above it a hemisphere or a flat end.
     pub head_len: f64,
+    pub flat_nose: bool,
     /// (m) between the helix's end cap and the head.
     pub gap: f64,
-    /// (m) the magnet: a cylinder magnetized across its axis, inside the head.
+    /// (m) the magnet: a cylinder magnetized across its axis, at the bottom of the head's
+    /// straight part.
     pub mag_radius: f64,
     pub mag_len: f64,
     /// (T) the magnet's remanence.
@@ -40,8 +43,8 @@ pub struct Mass {
     pub cob: V3,
 }
 
-/// The model's resistance matrices about `Swimmer::centre`: at 12 and 16 points round the wire,
-/// and extrapolated (the one to use).
+/// The model's resistance matrices about `Swimmer::centre`: at the two resolutions, and
+/// extrapolated (the one to use).
 pub struct Model {
     pub r: Matrix6<f64>,
     pub r12: Matrix6<f64>,
@@ -52,7 +55,7 @@ pub struct Model {
 
 impl Swimmer {
     /// The first desk design: a 3 mm helix of 0.6 mm wire (a resin print), 3 turns, and a
-    /// 2 x 2 mm magnet (N42-class, Br 1.3 T as in magnet-tracking) in a 2.5 mm head.
+    /// 2 x 2 mm magnet (N42-class, Br 1.3 T as in magnet-tracking) in a 2.5 mm capsule head.
     pub fn desk() -> Self {
         Swimmer {
             helix: Helix {
@@ -64,6 +67,7 @@ impl Swimmer {
             },
             head_radius: 1.25e-3,
             head_len: 2.0e-3,
+            flat_nose: false,
             gap: 0.5e-3,
             mag_radius: 1.0e-3,
             mag_len: 2.0e-3,
@@ -88,24 +92,42 @@ impl Swimmer {
     }
 
     /// z of the head's lower pole.
-    fn head_z0(&self) -> f64 {
+    pub fn head_z0(&self) -> f64 {
         let h = &self.helix;
         h.c() * h.t_max() + h.wire + self.gap
     }
-    pub fn head_centre(&self) -> V3 {
+    /// z of the nose.
+    pub fn nose_z(&self) -> f64 {
+        self.head_z0()
+            + self.head_radius
+            + self.head_len
+            + if self.flat_nose { 0.0 } else { self.head_radius }
+    }
+    /// The magnet's centre, at the bottom of the head's straight part.
+    pub fn magnet_centre(&self) -> V3 {
         V3::new(
             0.0,
             0.0,
-            self.head_z0() + self.head_radius + 0.5 * self.head_len,
+            self.head_z0() + self.head_radius + 0.5 * self.mag_len,
         )
     }
-    /// (z of the tail, z of the nose): the helix's start cap to the head's far pole.
+    /// The head's volume and centroid.
+    fn head_volume(&self) -> (f64, V3) {
+        let (r, l) = (self.head_radius, self.head_len);
+        let base = self.head_z0() + r;
+        let cyl = PI * r * r * l;
+        let hemi = 2.0 / 3.0 * PI * r.powi(3);
+        let (mut v, mut m) = (cyl + hemi, cyl * (base + 0.5 * l) + hemi * (base - 3.0 / 8.0 * r));
+        if !self.flat_nose {
+            v += hemi;
+            m += hemi * (base + l + 3.0 / 8.0 * r);
+        }
+        (v, V3::new(0.0, 0.0, m / v))
+    }
+    /// (z of the tail, z of the nose).
     fn ends(&self) -> (f64, f64) {
         let h = &self.helix;
-        (
-            -h.wire * h.c() / h.speed(),
-            self.head_z0() + 2.0 * self.head_radius + self.head_len,
-        )
+        (-h.wire * h.c() / h.speed(), self.nose_z())
     }
     pub fn length(&self) -> f64 {
         let (a, b) = self.ends();
@@ -124,15 +146,15 @@ impl Swimmer {
     pub fn mass(&self) -> Mass {
         let h = &self.helix;
         let wire = PI * h.wire.powi(2) * h.length() + 4.0 / 3.0 * PI * h.wire.powi(3);
-        let head = PI * self.head_radius.powi(2) * self.head_len
-            + 4.0 / 3.0 * PI * self.head_radius.powi(3);
+        let (head, ch) = self.head_volume();
         let mag = PI * self.mag_radius.powi(2) * self.mag_len;
         // Whole turns: the wire's centroid is on the axis, halfway along.
-        let (cw, ch) = (h.centre(), self.head_centre());
+        let (cw, cm) = (h.centre(), self.magnet_centre());
         let volume = wire + head;
         let mass = self.rho_body * (volume - mag) + self.rho_magnet * mag;
-        let com = (cw * (self.rho_body * wire)
-            + ch * (self.rho_body * (head - mag) + self.rho_magnet * mag))
+        let com = (cw * (self.rho_body * wire) + ch * (self.rho_body * head)
+            - cm * (self.rho_body * mag)
+            + cm * (self.rho_magnet * mag))
             / mass;
         let cob = (cw * wire + ch * head) / volume;
         Mass {
@@ -146,17 +168,23 @@ impl Swimmer {
     /// Surface points at `n_around` round the wire, the head at the same spacing.
     pub fn points(&self, n_around: usize) -> (Vec<V3>, f64) {
         let (mut pts, h) = self.helix.tube_points(n_around);
-        pts.extend(capsule_points(
-            self.head_radius,
-            self.head_len,
-            self.head_z0(),
-            h,
-        ));
+        let (r, l, z0) = (self.head_radius, self.head_len, self.head_z0());
+        pts.extend(if self.flat_nose {
+            bullet_points(r, l, z0, h)
+        } else {
+            capsule_points(r, l, z0, h)
+        });
         (pts, h)
     }
 
     /// The regularized-Stokeslet model at 12 and 16 round, extrapolated.
     pub fn model(&self, mu: f64) -> Model {
+        self.model_at(mu, 12, 16)
+    }
+
+    /// The model at `lo` and `hi` points round the wire, extrapolated (fields `r12`, `r16` hold
+    /// the two resolutions).
+    pub fn model_at(&self, mu: f64, lo: usize, hi: usize) -> Model {
         let t0 = Instant::now();
         let c = self.centre();
         let solve = |n| {
@@ -164,12 +192,12 @@ impl Swimmer {
             let (r, _) = stokeslet::resistance(&pts, EPS_C * h, mu, &c, TOL);
             (r, pts.len())
         };
-        let (r12, _) = solve(12);
-        let (r16, points) = solve(16);
+        let (r_lo, _) = solve(lo);
+        let (r_hi, points) = solve(hi);
         Model {
-            r: extrapolate(&r12, &r16),
-            r12,
-            r16,
+            r: extrapolate_n(&r_lo, lo, &r_hi, hi),
+            r12: r_lo,
+            r16: r_hi,
             points,
             seconds: t0.elapsed().as_secs_f64(),
         }

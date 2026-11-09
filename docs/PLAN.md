@@ -84,7 +84,14 @@ water. `coils` (~30 s): three nested Helmholtz pairs (75 / 92 / 112 mm mean radi
 with 3.8 mm to spare. 2 mT takes 7-13 W at up to 11.7 V, and 5 mT takes 46-84 W at up to 30 V
 (up to 7.6 C/min with no cooling). Over all the glycerol the turning field is within 2.5% of the
 centre's at its weakest and its axis tilts under 1 deg. The magnet's pull from the unevenness is
-at most 6% of the swimming speed (0.2% in the middle 10 mm). Next: `shape`.
+at most 6% of the swimming speed (0.2% in the middle 10 mm). `shape` (~3 min, the STL ~15 min):
+the SLA preset's 0.4 mm wall makes the magnet head 2.9 mm with a flat open nose, and on it the
+first helix barely climbs at 2 mT (+0.15 mm/s). RicherSA, with a grid as reference (the grid won
+at 4 turns), picked 2 turns, R 1.56 mm, pitch 12.19 mm, 0.51 mm wire, 28.8 mm: +2.12 mm/s,
+climbs from 1.27 mT, 5.84 mm/s top at 2 mT. The part: cf-design `pipe_spline` + head + pocket,
+meshed by uniform marching cubes, because the octree mesher folds triangles on the thin curved
+sweep (logged); SLA check clean apart from overhangs (supports) and unstable overlap flags.
+Next: `steer`.
 The other projects are a README each until they start.
 
 ## Order

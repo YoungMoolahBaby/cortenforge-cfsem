@@ -21,7 +21,17 @@ pub const EPS_C: f64 = 0.3;
 /// The model's error falls about as the spacing h (`check` section 3), so from 12 and 16 points
 /// round a wire (h in the ratio 4 : 3) the fine-spacing limit is R = 4 R16 - 3 R12.
 pub fn extrapolate(r12: &Matrix6<f64>, r16: &Matrix6<f64>) -> Matrix6<f64> {
-    r16 * 4.0 - r12 * 3.0
+    extrapolate_n(r12, 12, r16, 16)
+}
+
+/// The same for any two resolutions: R = (n_hi R_hi - n_lo R_lo) / (n_hi - n_lo).
+pub fn extrapolate_n(
+    r_lo: &Matrix6<f64>,
+    n_lo: usize,
+    r_hi: &Matrix6<f64>,
+    n_hi: usize,
+) -> Matrix6<f64> {
+    (r_hi * n_hi as f64 - r_lo * n_lo as f64) / (n_hi - n_lo) as f64
 }
 
 /// Velocity at `x` from a regularized force `f` at `x0`.
