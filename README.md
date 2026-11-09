@@ -31,7 +31,7 @@ One Cargo workspace; each project lives in `projects/<name>/`.
 | Project | What |
 |---|---|
 | [planar-conveyor](projects/planar-conveyor) | A coil grid that levitates and routes several movers |
-| [microswimmers](projects/microswimmers) | Helical swimmers driven by rotating fields (depends on CortenForge fluid support) |
+| [microswimmers](projects/microswimmers) | Corkscrew swimmers turned by a rotating field, the physics behind targeted drug delivery; a desk demo in glycerol, with the open problems stated plainly |
 | [magnet-arrays](projects/magnet-arrays) | Halbach arrays and contactless magnetic gears, magnets as equivalent current loops |
 
 ## Build
