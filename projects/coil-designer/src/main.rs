@@ -3,7 +3,7 @@
 //! `check` tests cfsem's circular-filament API against known results.
 
 mod check;
-mod coil;
+use coil_designer::coil;
 mod design;
 mod optimize;
 mod pack;

@@ -8,4 +8,5 @@ license.workspace = true
 cfsem.workspace = true
 cortenforge.workspace = true
 nalgebra.workspace = true
+coil-designer = { path = "../coil-designer" }
 rayon = "1.12"

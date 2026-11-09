@@ -2061,6 +2061,7 @@ name = "microswimmers"
 version = "0.1.0"
 dependencies = [
  "cfsem",
+ "coil-designer",
  "cortenforge",
  "nalgebra 0.34.2",
  "rayon",

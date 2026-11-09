@@ -79,7 +79,12 @@ resin helix, R 1.5 mm, pitch 6 mm, 0.6 mm wire, a 2 x 2 mm magnet in a capsule h
 71.6 mg) advances 0.197 of its pitch a turn (1.18 mm/s per Hz). It steps out at 1.79 Hz per mT
 (10.6 mm/s top at 5 mT) and slows past it (Adler). It sinks at 3.0-3.8 mm/s, so it needs
 1.4-1.8 mT to outswim that. Re 0.22 at the 5 mT top speed against 1.3e-3 for a 50 um copy in
-water. Next: `coils`.
+water. `coils` (~30 s): three nested Helmholtz pairs (75 / 92 / 112 mm mean radius, AWG 20,
+169 turns a coil, coil-designer's model, now also a library) round a 56 mm jar, which lifts out
+with 3.8 mm to spare. 2 mT takes 7-13 W at up to 11.7 V, and 5 mT takes 46-84 W at up to 30 V
+(up to 7.6 C/min with no cooling). Over all the glycerol the turning field is within 2.5% of the
+centre's at its weakest and its axis tilts under 1 deg. The magnet's pull from the unevenness is
+at most 6% of the swimming speed (0.2% in the middle 10 mm). Next: `shape`.
 The other projects are a README each until they start.
 
 ## Order

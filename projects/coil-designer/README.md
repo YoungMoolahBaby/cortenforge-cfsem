@@ -29,7 +29,8 @@ The gentlest way to learn cfsem.
   alone (defaults: the chosen design, 0.25 mm marching cubes). Writes `out/former_half.stl` and
   `out/former_washer.stl` (git-ignored).
 
-Reference formulas written independently of cfsem live in `src/refs.rs`.
+Reference formulas written independently of cfsem live in `src/refs.rs`. The coil model is also a
+library, `coil_designer::coil` (`src/lib.rs`), used by microswimmers `coils`.
 
 ## The coil model
 

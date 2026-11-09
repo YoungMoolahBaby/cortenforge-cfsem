@@ -63,7 +63,7 @@ Something people can watch and understand is easier to trust than a promise.
 ## Plan
 
 `cargo run --release -p microswimmers -- <mode>`, modes added as they are built (so far:
-`check`, `swim`).
+`check`, `swim`, `coils`).
 
 1. `check` (done, results below): the physics before anything is built on it.
    - The reference model: regularized Stokeslets (Cortez, Fauci and Medovikov, Phys. Fluids 17,
@@ -84,9 +84,10 @@ Something people can watch and understand is easier to trust than a promise.
    glycerol, up to the step-out frequency, where the magnet can't twist it fast enough and it
    slips and slows. Whether it sinks faster than it swims. The Reynolds numbers of the desk demo
    and a cell-sized swimmer in water side by side.
-3. `coils`: three Helmholtz pairs round the jar (sized with coil-designer): how even the
-   rotating field is over the jar, inductance, the drive voltage at the rotation rates `swim`
-   needs, power and heating, and the leftover gradient's pull against the twist.
+3. `coils` (done, results below): three Helmholtz pairs round the jar (coil-designer's coil
+   model): whether they fit, how even the rotating field is over the jar, inductance, the drive
+   voltage at the rotation rates `swim` needs, power and heating, and the leftover gradient's
+   pull against the twist.
 4. `shape`: the helix (radius, pitch, turns, wire thickness) optimized with sim-opt for speed or
    step-out, under printability (cf-design `pipe_spline`, mesh-printability). Writes the STL.
 5. `steer`: sim-core with gravity, buoyancy and contact with the jar and a printed maze; a
@@ -256,7 +257,86 @@ peak is a clean thing to measure with a camera.
 Not yet in the model: the jar's walls (drag rises near a wall), the strut, and how strongly the
 field holds the axis.
 
-Next: `coils`.
+## Coils (`coils`, 2026-11-09)
+
+In plain words: three pairs of coils, 15, 18 and 22 cm across, nest round a 56 mm jar. 2 mT is
+enough for the swimmer to climb. It takes 7-13 W and up to 11.7 V, so a 12 V supply is marginal
+and 24 V comfortable. 5 mT takes 46-84 W and up to 30 V, and would warm the copper by up to
+7.6 C a minute with no cooling at all: short bursts only. The field is even: across all of the
+glycerol its average strength stays within 1.4% of the centre's (2.5% below at its weakest moment
+in a turn), and its axis tilts under 1 degree.
+The magnet's pull from the field's unevenness is at most 6% of the swimming speed, and 0.2% in
+the middle. About 30 s.
+
+**The coil set.** Each coil is AWG 20 (0.812 mm bare), 13 x 13 = 169 turns in an 11.3 mm square
+pack, two coils a pair at Helmholtz spacing (the mean radius). It uses coil-designer's model:
+one cfsem filament per turn, inductance and resistance at 20 C, checked there (58 of 58).
+
+| pair | mean radius, mm | mT/A | ohm | mH | L/R, ms | wire, m | copper, kg |
+|---|---|---|---|---|---|---|---|
+| x | 75.0 | 2.0254 | 5.305 | 17.089 | 3.221 | 159.3 | 0.739 |
+| y | 92.0 | 1.6513 | 6.508 | 22.300 | 3.427 | 195.4 | 0.906 |
+| z (upright) | 112.0 | 1.3566 | 7.923 | 28.720 | 3.625 | 237.9 | 1.103 |
+
+**Fit.**
+
+- The windings clear each other by 3.9 mm (x to y), 7.2 mm (y to z) and 26.2 mm (x to z).
+- The jar (56 mm across, 60 mm tall) stands 35-81 mm from every winding. Lifting it straight out
+  passes 3.8 mm from the x windings and 12.3 mm from the y windings, so the x pair can't shrink
+  much if the jar is to come out of the top.
+- Smaller coils would cost less power (at a fixed pack, power grows as the cube of the size),
+  but they would have to be built round the jar.
+- Orthogonal pairs on one centre have no mutual inductance (each pair's field through the
+  others' loops cancels by symmetry), so the three drive independently.
+
+**Driving it.** The rate is the swimmer's step-out (3.59 Hz at 2 mT, 8.97 Hz at 5 mT). Peak
+current and voltage are per pair (x, y, z), with the mean power of all three. Heating is for the
+worst pair with no cooling at all (an upper bound).
+
+| B, mT | swimming | peak A | peak V | mean W | worst C/min | peak A/mm^2 |
+|---|---|---|---|---|---|---|
+| 2 | climbing (field turns in x-y) | 0.99, 1.21, 0 | 5.3, 7.9, 0 | 7.4 | 0.82 | 2.34 |
+| 2 | level along x (y-z) | 0, 1.21, 1.47 | 0, 7.9, 11.7 | 13.4 | 1.22 | 2.85 |
+| 2 | level along y (x-z) | 0.99, 0, 1.47 | 5.3, 0, 11.7 | 11.2 | 1.22 | 2.85 |
+| 5 | climbing | 2.47, 3.03, 0 | 13.3, 20.1, 0 | 46.0 | 5.13 | 5.85 |
+| 5 | level along x | 0, 3.03, 3.69 | 0, 20.1, 29.8 | 83.6 | 7.60 | 7.12 |
+| 5 | level along y | 2.47, 0, 3.69 | 13.3, 0, 29.8 | 70.0 | 7.60 | 7.12 |
+
+- L/R is 3.2-3.6 ms against a turn of 110 ms or more, so at these rates the coils are nearly pure
+  resistors: inductance adds under 2% to the voltage.
+- Copper's resistance rises 0.39% per degree, so a warm coil needs more voltage for the same
+  field.
+- Heat that reaches the jar thins the glycerol. That raises step-out and sinking, but not the
+  advance per turn (`swim`).
+
+**The field over the glycerol**, per unit B0, on 1469 points filling the 50 x 50 mm of glycerol
+(the core is the middle 10 mm):
+
+| swimming | where | mean size, min-max | weakest | ellipticity | axis tilt, deg |
+|---|---|---|---|---|---|
+| climbing | all | 0.992-1.013 | 0.975 | 0.036 | 0.94 |
+| climbing | core | 1.000-1.000 | 1.000 | 0.000 | 0.01 |
+| level along x | all | 0.997-1.007 | 0.989 | 0.015 | 0.35 |
+| level along x | core | 1.000-1.000 | 1.000 | 0.000 | 0.00 |
+| level along y | all | 0.990-1.014 | 0.975 | 0.031 | 0.79 |
+| level along y | core | 1.000-1.000 | 1.000 | 0.000 | 0.01 |
+
+- The weakest point in a turn sets step-out there: it is 2.5% lower at worst.
+- Ellipticity is how far the field's path is from a circle (largest over smallest, less 1).
+  Tilt is the angle between the field's turning axis and the way the swimmer should go: the
+  steering error, under 1 degree anywhere.
+
+**The pull.** The magnet is drawn towards a stronger field. The force is (m . grad) B with the
+magnet trailing the field by its lag (sin phi = (f / f_so) B0 / |B|), averaged over a turn. The
+drift it causes is that force through the swimmer's drag, the swimmer pointing the way it swims.
+At 0.75 of step-out the worst drift is 5.6% / 3.0% / 5.9% of the swimming speed over all the
+glycerol (climbing / level along x / level along y), and 0.2% / 0.1% / 0.2% in the core. Force
+and swimming speed both scale with B0, so the ratio holds at any field.
+
+Not yet: the coil formers (coil-designer's tooling), the driver electronics, and the field
+measured with a Hall probe.
+
+Next: `shape`.
 
 ## What's still unsolved (in the field, not just here)
 
