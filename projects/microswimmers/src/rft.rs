@@ -6,7 +6,7 @@
 
 use std::f64::consts::PI;
 
-use nalgebra::{Matrix5, Matrix6, Vector5, Vector6};
+use nalgebra::{Matrix3, Matrix5, Matrix6, Vector3, Vector5, Vector6};
 
 use crate::helix::{Helix, V3};
 
@@ -94,4 +94,17 @@ pub fn swim(r: &Matrix6<f64>) -> Swim {
 /// Advance per turn as a fraction of the pitch (1 would be a screw in wood).
 pub fn advance(h: &Helix, s: &Swim) -> f64 {
     s.u.z * 2.0 * PI / h.pitch
+}
+
+/// Turned at unit rate about z with the axis held (no wobble): no net force; the torque about
+/// x and y is whatever holding the axis takes.
+pub fn swim_locked(r: &Matrix6<f64>) -> Swim {
+    let a: Matrix3<f64> = r.fixed_view::<3, 3>(0, 0).into_owned();
+    let b: Vector3<f64> = -r.fixed_view::<3, 1>(0, 5).into_owned();
+    let u = a.lu().solve(&b).expect("translation block invertible");
+    Swim {
+        u,
+        wobble: (0.0, 0.0),
+        torque: r[(5, 0)] * u.x + r[(5, 1)] * u.y + r[(5, 2)] * u.z + r[(5, 5)],
+    }
 }

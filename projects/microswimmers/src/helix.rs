@@ -138,3 +138,31 @@ pub fn spheroid_points(a: f64, b: f64, h: f64) -> Vec<V3> {
     }
     pts
 }
+
+/// Points on a capsule on the z axis (radius `r`, straight part `len`), its lower pole at `z0`, in
+/// rings at equal arc length (spacing about h) along the meridian, each turned by the golden angle.
+pub fn capsule_points(r: f64, len: f64, z0: f64, h: f64) -> Vec<V3> {
+    let quarter = 0.5 * PI * r;
+    let total = 2.0 * quarter + len;
+    let n_rings = (total / h).round().max(2.0) as usize;
+    let golden = PI * (3.0 - 5f64.sqrt());
+    let mut pts = Vec::new();
+    for k in 0..=n_rings {
+        let s = total * k as f64 / n_rings as f64;
+        let (rho, z) = if s < quarter {
+            let a = s / r;
+            (r * a.sin(), z0 + r - r * a.cos())
+        } else if s <= quarter + len {
+            (r, z0 + r + (s - quarter))
+        } else {
+            let a = (s - quarter - len) / r;
+            (r * a.cos(), z0 + r + len + r * a.sin())
+        };
+        let m = (2.0 * PI * rho / h).round().max(1.0) as usize;
+        for j in 0..m {
+            let phi = 2.0 * PI * j as f64 / m as f64 + golden * k as f64;
+            pts.push(V3::new(rho * phi.cos(), rho * phi.sin(), z));
+        }
+    }
+    pts
+}

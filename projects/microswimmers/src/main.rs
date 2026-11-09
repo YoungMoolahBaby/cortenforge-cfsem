@@ -8,17 +8,20 @@ mod helix;
 mod rft;
 mod simcore;
 mod stokeslet;
+mod swim;
+mod swimmer;
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "check".into());
     match mode.as_str() {
+        "swim" => swim::run(),
         "check" => {
             if !check::run() {
                 std::process::exit(1);
             }
         }
         m => {
-            eprintln!("unknown mode {m}; modes: check");
+            eprintln!("unknown mode {m}; modes: check, swim");
             std::process::exit(2);
         }
     }

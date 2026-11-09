@@ -17,6 +17,7 @@ use nalgebra::Matrix6;
 
 use crate::helix::{Helix, V3, spheroid_points};
 use crate::rft::{self, advance, gray_hancock, lighthill, swim};
+use crate::stokeslet::{EPS_C, extrapolate};
 use crate::{simcore, stokeslet};
 
 /// Pure glycerol at 20 C: viscosity (Pa s) and density (kg/m^3).
@@ -87,12 +88,6 @@ pub fn rs_helix(h: &Helix, n_around: usize, c: f64, mu: f64) -> (Matrix6<f64>, u
     let (pts, sp) = h.tube_points(n_around);
     let (r, it) = stokeslet::resistance(&pts, c * sp, mu, &h.centre(), TOL);
     (r, pts.len(), it)
-}
-
-/// The model's error falls about as the spacing h (section 3), so from 12 and 16 points round
-/// the wire (h in the ratio 4 : 3) the fine-spacing limit is R = 4 R16 - 3 R12.
-pub fn extrapolate(r12: &Matrix6<f64>, r16: &Matrix6<f64>) -> Matrix6<f64> {
-    r16 * 4.0 - r12 * 3.0
 }
 
 /// The model of a helix extrapolated from 12 and 16 round; also returns the 16-round matrix
@@ -189,6 +184,11 @@ pub fn run() -> bool {
     println!(
         "   c = {c_best} has the least worst error over all spacings ({:.2}%); used from here on",
         100.0 * score[best]
+    );
+    t.small(
+        "the c picked here vs EPS_C, the c the other modes use",
+        c_best - EPS_C,
+        0.0,
     );
     let (ef, et) = sphere_err[hs.len() - 1][best];
     t.small("sphere drag at h = 0.1 a, relative", ef, 1e-2);

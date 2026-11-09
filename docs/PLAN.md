@@ -69,12 +69,17 @@ fails) plus a 50 T m magnet run warm at ~65 K, 11.4 Mt, 55 MW, ~18 kt of TNT sto
 transport for the secondaries, the support structure, quench protection.
 microswimmers started (2026-11-09): corkscrew swimmers in a rotating field, the physics behind
 targeted drug delivery. Its README leads with what it's for, shows how it works and names what's
-unsolved. `check` (23 of 23, ~65 s): a regularized-Stokeslet model in plain Rust, within 0.84%
+unsolved. `check` (24 of 24, 1-2 min): a regularized-Stokeslet model in plain Rust, within 0.84%
 of Stokes' sphere and, extrapolated from two spacings, 1.25% of exact spheroids. Resistive force
 theory gets the speed (Gray-Hancock, within 6.1%) or the torque (Lighthill, 6-15% low) but not
 both. sim-core's fluid model can't swim a helix: its viscous drag is the same in every direction
 (advance 5e-18 against the model's 0.2455 of the pitch a turn), so the swimmer's forces will go in
-through `xfrc_applied`. cfsem Helmholtz checks. Next: `swim`.
+through `xfrc_applied`. cfsem Helmholtz checks. `swim` (~17 s): the desk swimmer (3-turn
+resin helix, R 1.5 mm, pitch 6 mm, 0.6 mm wire, a 2 x 2 mm magnet in a capsule head, 23.5 mm,
+71.6 mg) advances 0.197 of its pitch a turn (1.18 mm/s per Hz). It steps out at 1.79 Hz per mT
+(10.6 mm/s top at 5 mT) and slows past it (Adler). It sinks at 3.0-3.8 mm/s, so it needs
+1.4-1.8 mT to outswim that. Re 0.22 at the 5 mT top speed against 1.3e-3 for a 50 um copy in
+water. Next: `coils`.
 The other projects are a README each until they start.
 
 ## Order

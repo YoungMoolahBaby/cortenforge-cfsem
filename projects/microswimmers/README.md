@@ -48,9 +48,10 @@ body-sized workspace (Abbott et al., "How should microrobots swim?", Int. J. Rob
 ## The desk demo
 
 Cell-sized swimmers can't be made at home, and they don't need to be. What decides the physics
-is the ratio of inertia to stickiness, the Reynolds number. A printed corkscrew a few
-millimetres long in glycerol or corn syrup is in the same regime as a microrobot in water (both
-far under 1; `swim` computes the two side by side). So:
+is the ratio of inertia to stickiness, the Reynolds number. A printed corkscrew a couple of
+centimetres long in glycerol is in nearly the same regime as a microrobot in water: both are
+under 1, the desk demo at 0.05-0.2 and a cell-sized swimmer at about 0.001 (`swim`, below).
+So:
 
 - a printed helix a few mm long with a tiny magnet magnetized across its axis,
 - a jar of glycerol inside three pairs of coils (x, y, z),
@@ -62,7 +63,7 @@ Something people can watch and understand is easier to trust than a promise.
 ## Plan
 
 `cargo run --release -p microswimmers -- <mode>`, modes added as they are built (so far:
-`check`).
+`check`, `swim`).
 
 1. `check` (done, results below): the physics before anything is built on it.
    - The reference model: regularized Stokeslets (Cortez, Fauci and Medovikov, Phys. Fluids 17,
@@ -79,9 +80,10 @@ Something people can watch and understand is easier to trust than a promise.
      syrup. Confirmed by a run and logged in docs/CORTENFORGE.md with a Suggestion. The
      swimmer's fluid forces come from our model, applied through `xfrc_applied`.
    - cfsem: a Helmholtz pair's centre field, and the field of two pairs in quadrature.
-2. `swim`: speed against rotation rate for a printable helix in glycerol, up to the step-out
-   frequency, where the magnet can't twist it fast enough and it slips and slows. The Reynolds
-   numbers of the desk demo and a cell-sized swimmer in water side by side.
+2. `swim` (done, results below): speed against rotation rate for a printable swimmer in
+   glycerol, up to the step-out frequency, where the magnet can't twist it fast enough and it
+   slips and slows. Whether it sinks faster than it swims. The Reynolds numbers of the desk demo
+   and a cell-sized swimmer in water side by side.
 3. `coils`: three Helmholtz pairs round the jar (sized with coil-designer): how even the
    rotating field is over the jar, inductance, the drive voltage at the rotation rates `swim`
    needs, power and heating, and the leftover gradient's pull against the twist.
@@ -101,7 +103,7 @@ colon-probe (the same steer-from-outside idea at a larger size).
 
 ## Checks (`check`, 2026-11-09)
 
-23 of 23 pass, about 65 s. In plain words: our model of a swimmer in syrup reproduces exact
+24 of 24 pass in 1-2 minutes. In plain words: our model of a swimmer in syrup reproduces exact
 textbook results to about 1%. The quick textbook shortcut gets either the speed or the twisting
 effort right, never both. CortenForge's built-in fluid model can't make a corkscrew swim at all,
 so the swimmer's forces come from our model.
@@ -119,7 +121,8 @@ five spacings run):
 | 0.393 | 82 | -25.5 / -39.7 | -9.8 / -15.9 | -2.9 / -2.8 | +1.2 / +6.0 | +4.1 / +12.7 | +9.4 / +26.2 |
 | 0.100 | 1242 | -8.2 / -14.6 | -2.8 / -4.7 | -0.84 / -0.77 | +0.20 / +1.46 | +0.87 / +3.0 | +2.0 / +5.7 |
 
-c = 0.3 has the least worst error at every spacing and is used from here on. (h = 0.785 a is a
+c = 0.3 has the least worst error at every spacing and is used from here on (`EPS_C`, which
+`check` confirms). (h = 0.785 a is a
 tube with 8 points round the wire.)
 
 **Prolate spheroids.** The exact formulas agree with the sphere to 1.2e-6 (eccentricity 1e-3)
@@ -181,7 +184,79 @@ tilts at 5.3% of the spin rate.
 quadrature (one nested at 1.2 R, its current raised to match) give a centre field that turns at
 omega t with constant size (3.3e-16).
 
-Next: `swim`.
+## Swimming (`swim`, 2026-11-09)
+
+In plain words: the desk swimmer is about 2.3 cm long and moves a fifth of its pitch each turn,
+1.2 mm/s for every turn a second. A 5 mT rotating field can turn it up to 9 times a second, for
+10.6 mm/s, nearly half a body length a second. Turn the field faster and the magnet slips and the
+swimmer slows down. It's heavier than glycerol and sinks at 3-4 mm/s, so it needs a field of at
+least about 2 mT to swim upwards. About 17 s.
+
+**The swimmer** (`Swimmer::desk`):
+
+- A resin helix (1150 kg/m^3): R 1.5 mm, pitch 6 mm (57.5 deg), wire 0.6 mm across, 3 turns.
+- A capsule head 2.5 mm across and 4.5 mm long, 0.5 mm ahead of the helix, holding a 2 x 2 mm
+  magnet magnetized across its axis. The magnet is N42-class (Br 1.3 T, as in magnet-tracking),
+  7500 kg/m^3, m = 6.5e-3 A m^2.
+- A thin strut joins head and helix; its drag is ignored.
+- In all: 23.5 mm long, 27.6 mm^3, 71.6 mg.
+- The model: 7183 points at 16 round, extrapolated from 12 and 16.
+
+**Per turn:**
+
+| | advance / pitch | mm/s per Hz | torque, N m per Hz | wobble |
+|---|---|---|---|---|
+| axis held by the field | 0.1973 | 1.184 | 3.624e-6 | 0 |
+| axis free to wobble | 0.1952 | 1.171 | 3.606e-6 | 0.018 |
+
+- At 12 and 16 round alone the advance is 0.1869 and 0.1895. The extrapolation adds 4%, and the
+  extrapolated model was within 1.25% on the spheroids (`check`).
+- The real swimmer lies between held and free, because the field also resists tilting. The two
+  differ by 1%; held is used below.
+- Below step-out the advance per turn depends only on the shape, not on the fluid (Stokes flow is
+  linear). Viscosity sets only the step-out rate and the sinking speed. Glycerol's viscosity
+  changes a lot with temperature and the water it soaks up from the air, but the measured
+  advance per turn shouldn't.
+
+**Step-out**, f = m B / (2 pi D), D the turning drag:
+
+| B, mT | step-out, Hz | top speed, mm/s | body lengths / s |
+|---|---|---|---|
+| 1 | 1.79 | 2.12 | 0.091 |
+| 2 | 3.59 | 4.25 | 0.181 |
+| 5 | 8.97 | 10.62 | 0.453 |
+| 10 | 17.94 | 21.23 | 0.905 |
+
+**Past step-out** (5 mT, Adler's equation): the magnet slips a turn now and then, and the speed
+falls from 10.62 mm/s at step-out to 6.81 at 1.1 times the rate, 4.06 at 1.5x, 2.84 at 2x and
+1.82 at 3x. Speed against field rate rises in a straight line, peaks at step-out and drops. The
+peak is a clean thing to measure with a camera.
+
+**Gravity:**
+
+- In glycerol it weighs 36.8 mg. It sinks at 3.04 mm/s with its axis held level and 3.82 mm/s
+  held upright.
+- To outswim sinking, the field must beat 1.43 mT when level. To climb straight up, it must beat
+  1.80 mT and the swimmer must turn faster than 3.22 Hz.
+- The heavy head puts the centre of mass 2.33 mm ahead of the centre of buoyancy. Gravity's
+  tilting torque is 5.0% of what the magnet can hold at 5 mT.
+- A lighter head (hollow, or foam round the magnet) would sink slower: a lever for `shape`.
+
+**Reynolds numbers**, by the whole length:
+
+- At step-out, the desk demo is at 0.045 (1 mT), 0.089 (2 mT), 0.22 (5 mT) and 0.45 (10 mT);
+  turning, 0.11 at 5 mT.
+- The same shape 50 um long in water at 10 Hz (25 um/s) is at 1.3e-3.
+- So the desk demo is in the same sticky regime at modest fields. At the 5 mT top speed, a rough
+  size of inertia's share is 4.2%: Oseen's first correction, (3/16) Re, for a sphere as wide as
+  the swimmer is long, which overestimates it. At 10 mT it is twice that, so keep the demo slow
+  or the fluid thick.
+- The swimmer's own inertia settles in 0.76 ms, far quicker than a turn.
+
+Not yet in the model: the jar's walls (drag rises near a wall), the strut, and how strongly the
+field holds the axis.
+
+Next: `coils`.
 
 ## What's still unsolved (in the field, not just here)
 

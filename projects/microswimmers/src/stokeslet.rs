@@ -14,6 +14,16 @@ use rayon::prelude::*;
 
 use crate::helix::V3;
 
+/// eps = EPS_C h, h the spacing between points: the c with the least worst sphere error at every
+/// spacing (`check` section 2, which also confirms this constant).
+pub const EPS_C: f64 = 0.3;
+
+/// The model's error falls about as the spacing h (`check` section 3), so from 12 and 16 points
+/// round a wire (h in the ratio 4 : 3) the fine-spacing limit is R = 4 R16 - 3 R12.
+pub fn extrapolate(r12: &Matrix6<f64>, r16: &Matrix6<f64>) -> Matrix6<f64> {
+    r16 * 4.0 - r12 * 3.0
+}
+
 /// Velocity at `x` from a regularized force `f` at `x0`.
 pub fn velocity(x: &V3, x0: &V3, f: &V3, eps: f64, mu: f64) -> V3 {
     let d = x - x0;
