@@ -31,7 +31,7 @@ One Cargo workspace; each project lives in `projects/<name>/`.
 | Project | What |
 |---|---|
 | [planar-conveyor](projects/planar-conveyor) | A coil grid that levitates and routes several movers |
-| [microswimmers](projects/microswimmers) | Corkscrew swimmers turned by a rotating field, the physics behind targeted drug delivery; a desk demo in glycerol, with the open problems stated plainly. `check`: our Stokes model checked against exact results, CortenForge's fluid model can't swim a helix; `swim`: 10.6 mm/s at 5 mT, step-out, sinking; `coils`: three nested pairs, 2 mT for 7-13 W; `shape`: a printable swimmer that climbs at 2 mT, STL |
+| [microswimmers](projects/microswimmers) | Corkscrew swimmers turned by a rotating field, the physics behind targeted drug delivery; a desk demo in glycerol, with the open problems stated plainly. `check`: our Stokes model checked against exact results, CortenForge's fluid model can't swim a helix; `swim`: 10.6 mm/s at 5 mT, step-out, sinking; `coils`: three nested pairs, 2 mT for 7-13 W; `shape`: a printable swimmer that climbs at 2 mT, STL; `steer`: it stands up off the floor and threads a printed spiral staircase in 21 s at 5 mT (2 mT can climb but not steer), and two sim-core contact bugs found |
 | [magnet-arrays](projects/magnet-arrays) | Halbach arrays and contactless magnetic gears, magnets as equivalent current loops |
 
 ## Build

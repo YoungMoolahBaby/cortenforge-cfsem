@@ -86,6 +86,41 @@ How to read it:
   also overstates drag (2.61x for a helix's turning; see Probe results). These are MuJoCo's
   documented models, so this is not a bug, but swimmers, flagella, cilia and particles settling in
   thick fluids are out of reach. See Suggestions.
+- **works** (2026-11-09): a Stokes-flow body through `xfrc_applied` (microswimmers `steer`).
+  - The setup: a free body with `<inertial ... fullinertia>` at its centre of mass, and each
+    step the drag of the velocity the step will end with, v' = (M + dt R)^-1 (M v + dt F), with
+    F the other known forces and R the body's 6 x 6 resistance matrix in its own frame.
+  - Free of contact, sim-core's free-joint update lands on v' to 2e-4 at 1 ms steps (4.7e-6 at
+    20 us). `Data::qM` matches our mass matrix to 1.2e-20.
+  - A 70 mg swimmer that settles in 0.1-0.55 ms runs at 1 ms steps (about 36x faster than real
+    time with 143 contact spheres), with its speed within 0.06% of the 20 us result.
+  - Linear velocity is in the world frame and angular velocity in the body frame, as in MuJoCo.
+  - The limit: the drag ignores contact, so in contact friction is too weak at long steps. A
+    swimmer pressed against a wall slides at 9.6 mm/s with 1 ms steps, 7.2 at 0.25 ms and 6.4
+    with plain drag at 20 us. See Suggestions (Stokes-flow bodies).
+- **bug** (2026-11-09): capsule-box contact pushes the wrong way. A free 1 kg capsule (5 cm
+  radius) dropped flat on a box sinks to the box's centre and stays there, reporting depth =
+  radius, whichever geom is listed first (`cargo run --release -p microswimmers -- steer
+  contact`; 2 ms steps, default contact).
+  - The likely cause: `collide_capsule_box` sets `normal_sign = +1` when the capsule is geom1
+    (collision/pair_cylinder.rs:305). But its normal points from the box to the capsule, and
+    sphere-box negates exactly that case so the normal runs geom1 to geom2
+    (pair_convex.rs:360-364).
+  - In the swimmer course, capsules were pulled 2-4 mm into the glass's boxes, and once shot
+    through a fin at 1 m/s.
+  - Sphere-box contact is fine.
+- **bug** (2026-11-09): some cylinder contacts are never found, so bodies fall straight through
+  (the same probe).
+  - A cylinder dropped on a box, on a cylinder's flat end or on a cylinder's side: no contacts,
+    and it ends 30-44 m below.
+  - A capsule on a cylinder's flat end does the same.
+  - Cylinder pairs go to the general GJK/EPA path (collision/narrow.rs:170), and capsule-cylinder
+    falls back to it when its own routine finds nothing (narrow.rs:156-168).
+  - A capsule on a cylinder's side, and anything on a plane, are fine.
+- **works** (2026-11-09): sphere contacts with planes, boxes and cylinders, at an everyday scale
+  and at the swimmer's (70 mg, 0.25-1.45 mm spheres, default `solref` 0.02): pressed into a wall
+  by its own thrust, the swimmer goes 0.006-0.07 mm in. The workaround for the two bugs above is
+  a chain of spheres along each capsule.
 
 ### `sim-opt`
 
@@ -381,7 +416,12 @@ None yet.
   theory, or better (b) a body whose fluid force is a given 6 x 6 resistance matrix times its
   velocity relative to the fluid, with the matching velocity derivative so implicit integrators
   stay stable when a light body sits in a thick fluid. (b) also captures shielding between a
-  body's own parts, which (a) can't (see the `sim-core` API entry). Built instead: a
-  regularized-Stokeslet model in plain Rust (microswimmers `check`, within 1.25% of exact
-  spheroids). Its resistance matrix will go in through `xfrc_applied` (microswimmers `steer`,
-  planned).
+  body's own parts, which (a) can't (see the `sim-core` API entry).
+  - Built instead: a regularized-Stokeslet model in plain Rust (microswimmers `check`, within
+    1.25% of exact spheroids).
+  - Its resistance matrix goes in through `xfrc_applied` as a linearly implicit drag
+    (microswimmers `steer`; see the `sim-core` works entry). That is exact and stable free of
+    contact, but the contact solve doesn't see the drag, so friction is too weak at long steps.
+  - (b) done natively would add dt R to the mass matrix, as the implicit integrators already
+    build M + h D for joint damping (forward/acceleration.rs:149, `M_impl`). Used in the
+    constraint solve as well, that would make contact consistent too.

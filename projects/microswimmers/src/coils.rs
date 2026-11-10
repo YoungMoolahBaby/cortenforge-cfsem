@@ -22,21 +22,21 @@ use crate::swimmer::Swimmer;
 /// (J/(kg K)) copper.
 const C_CU: f64 = 385.0;
 /// The jar, upright on z: glass outer radius and half height, and the glycerol inside.
-const JAR_R: f64 = 28e-3;
+pub(crate) const JAR_R: f64 = 28e-3;
 const JAR_H: f64 = 30e-3;
-const LIQ_R: f64 = 25e-3;
-const LIQ_H: f64 = 25e-3;
+pub(crate) const LIQ_R: f64 = 25e-3;
+pub(crate) const LIQ_H: f64 = 25e-3;
 /// Radius of the central region reported on its own.
 const CORE: f64 = 10e-3;
 /// Operate at this fraction of step-out when comparing the pull with swimming.
 const KAPPA: f64 = 0.75;
 
-struct Pair {
+pub(crate) struct Pair {
     name: &'static str,
-    axis: V3,
+    pub(crate) axis: V3,
     u: V3,
     v: V3,
-    coil: Coil,
+    pub(crate) coil: Coil,
     r_mean: f64,
     spacing: f64,
     turns: usize,
@@ -69,7 +69,7 @@ impl Pair {
     }
 
     /// Field per amp at world points.
-    fn field(&self, pts: &[V3]) -> Vec<V3> {
+    pub(crate) fn field(&self, pts: &[V3]) -> Vec<V3> {
         let mut r = Vec::with_capacity(pts.len());
         let mut z = Vec::with_capacity(pts.len());
         let mut er = Vec::with_capacity(pts.len());
@@ -142,20 +142,27 @@ fn lift_clearance(p: &V3) -> f64 {
 }
 
 /// e1, e2 spanning the plane normal to n (right-handed: e1 x e2 = n).
-fn plane(n: &V3) -> (V3, V3) {
+pub(crate) fn plane(n: &V3) -> (V3, V3) {
     let t = if n.x.abs() < 0.9 { V3::x() } else { V3::y() };
     let e1 = (t - n * n.dot(&t)).normalize();
     (e1, n.cross(&e1))
 }
 
-pub fn run() {
+/// The coil set: x, y and z pairs (pair k's axis is world axis k), AWG 20, 13 x 13 turns a coil.
+pub(crate) fn pairs() -> [Pair; 3] {
     let wire = Wire::awg(20);
     let n = 13;
-    let pairs = [
+    [
         Pair::new("x", V3::x(), V3::y(), 75e-3, wire, n),
         Pair::new("y", V3::y(), V3::z(), 92e-3, wire, n),
         Pair::new("z", V3::z(), V3::x(), 112e-3, wire, n),
-    ];
+    ]
+}
+
+pub fn run() {
+    let wire = Wire::awg(20);
+    let n = 13;
+    let pairs = pairs();
     let k: Vec<f64> = pairs
         .iter()
         .map(|p| p.field(&[V3::zeros()])[0].dot(&p.axis))

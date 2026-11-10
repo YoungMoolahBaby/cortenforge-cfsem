@@ -83,6 +83,18 @@ impl Design {
     }
 }
 
+/// The swimmer `shape` chose (out/shape/best.txt of the run in the README, kept here so later
+/// modes don't depend on out/): 2 turns, R 1.56 mm, 38.9 deg, 0.51 mm wire.
+pub fn chosen() -> Swimmer {
+    Design {
+        radius: 1.563333570957184e-3,
+        angle: 38.868548572063446,
+        wire: 0.5 * 0.5074876546859741e-3,
+        turns: 2.0,
+    }
+    .swimmer()
+}
+
 /// A helix on the printable head: the magnet plus clearance plus the SLA wall, flat open nose.
 fn printable(h: Helix) -> Swimmer {
     let d = Swimmer::desk();

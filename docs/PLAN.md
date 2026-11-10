@@ -91,7 +91,17 @@ at 4 turns), picked 2 turns, R 1.56 mm, pitch 12.19 mm, 0.51 mm wire, 28.8 mm: +
 climbs from 1.27 mT, 5.84 mm/s top at 2 mT. The part: cf-design `pipe_spline` + head + pocket,
 meshed by uniform marching cubes, because the octree mesher folds triangles on the thin curved
 sweep (logged); SLA check clean apart from overhangs (supports) and unstable overlap flags.
-Next: `steer`.
+`steer` (~1 min): the chosen swimmer as a sim-core body (gravity, buoyancy, the magnet's twist
+and pull from the coils' cfsem field, the Stokes model's drag applied linearly implicitly through
+`xfrc_applied`; within 0.1% of the model with the axis free, which `swim`/`shape`'s held axis
+overstated by 2.5%). The heavy magnet in the nose makes it sink nose first like a dart: level at
+2 mT the nose droops 21 deg and swings 32 deg sideways, and it can't pitch up from level, so
+steering needs 4-5 mT where climbing needed 2. A still field stands it up off the floor; then
+pure pursuit, its aim corrected for sinking, threads a printed spiral staircase (a post, two fins
+with windows 20 mm apart in height) in 20.6 s at 5 mT (2.8 mm rms off the path, 0.3 s brushing,
+62 W, +1.5 C) or 24.8 s at 4 mT; a loop on the seen axis made it worse. Two sim-core contact
+bugs found and logged (capsule-box pushes the wrong way; cylinder contacts missed), worked round
+with sphere contacts. Next: `scale`.
 The other projects are a README each until they start.
 
 ## Order

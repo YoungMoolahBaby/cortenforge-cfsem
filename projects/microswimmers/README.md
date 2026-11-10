@@ -63,7 +63,7 @@ Something people can watch and understand is easier to trust than a promise.
 ## Plan
 
 `cargo run --release -p microswimmers -- <mode>`, modes added as they are built (so far:
-`check`, `swim`, `coils`, `shape`).
+`check`, `swim`, `coils`, `shape`, `steer`).
 
 1. `check` (done, results below): the physics before anything is built on it.
    - The reference model: regularized Stokeslets (Cortez, Fauci and Medovikov, Phys. Fluids 17,
@@ -91,9 +91,9 @@ Something people can watch and understand is easier to trust than a promise.
 4. `shape` (done, results below): the helix (radius, pitch angle, wire, turns) chosen for the
    fastest climb at 2 mT with sim-opt (RicherSA, a grid for reference), printable in resin; then
    the part as a cf-design solid, meshed, checked with mesh-printability (SLA) and written as STL.
-5. `steer`: sim-core with gravity, buoyancy and contact with the jar and a printed maze; a
-   controller tilts the rotation plane to follow a path (sim-rl if a hand-tuned one isn't
-   enough).
+5. `steer` (done, results below): sim-core with gravity, buoyancy and contact with the jar and a
+   printed maze; a controller tilts the rotation plane to follow a path (sim-rl if a hand-tuned
+   one isn't enough; it was enough).
 6. `scale`: the honest numbers. Coils sized for a human torso, their power and stored energy,
    and the swimmer's speed against blood flow. This fills the section below with real figures.
 7. Hardware: print the swimmer and the coil formers, a three-channel driver, the jar and a
@@ -214,7 +214,8 @@ least about 2 mT to swim upwards. About 17 s.
 - At 12 and 16 round alone the advance is 0.1869 and 0.1895. The extrapolation adds 4%, and the
   extrapolated model was within 1.25% on the spheroids (`check`).
 - The real swimmer lies between held and free, because the field also resists tilting. The two
-  differ by 1%; held is used below.
+  differ by 1%; held is used below. (`steer` later found the free axis is the right one: sim-core
+  matches it to 0.1%.)
 - Below step-out the advance per turn depends only on the shape, not on the fluid (Stokes flow is
   linear). Viscosity sets only the step-out rate and the sinking speed. Glycerol's viscosity
   changes a lot with temperature and the water it soaks up from the air, but the measured
@@ -424,7 +425,160 @@ Logged in docs/CORTENFORGE.md (`cf-design`).
 Not yet: a print. The strut is in the part but not in the model, and the glue that seals the
 nose is in neither.
 
-Next: `steer`.
+## Steer (`steer`, 2026-11-09)
+
+In plain words: in CortenForge's physics engine, the swimmer `shape` chose stands itself up off
+the jar's floor, laps a printed post and threads two windows 20 mm apart in height, in 21 s at
+5 mT. Steering takes more field than climbing. At 2 mT it climbs straight up but can't pitch up
+from level; the course needs 4 mT (38 W) or, better, 5 mT (62 W, the worst coil warming 1.5 C
+over a run). On the way: the heavy magnet in the nose makes it sink nose first like a dart, it
+flies tilted against its own sinking like a helicopter, a simple controller beat a cleverer one,
+and two contact bugs turned up in sim-core. About 1 min.
+
+Modes: `steer`, `steer course` (the course alone), and `steer wall` and `steer contact`
+(sim-core's contacts, below).
+
+**The swimmer in sim-core.**
+
+- A free body with the model's mass (70.2 mg) and centre of mass. Its inertia comes from samples
+  (their mass within 0.1% of the model's), and gravity is sim-core's own.
+- Buoyancy acts at the centre of buoyancy. The magnet adds its twist, m x B, and its pull,
+  (m . grad) B. The fluid's force comes from our 6 x 6 resistance matrix. All three go in
+  through `xfrc_applied`.
+- The swimmer settles to a new speed in 0.55 ms and a new spin in 0.10 ms, so a plain drag force
+  would need steps of microseconds. Instead each step applies the drag of the velocity the step
+  will end with (linearly implicit). Sim-core lands on that velocity to 2e-4 at 1 ms steps, and
+  its mass matrix matches ours to 1e-20.
+- For contact the swimmer is 143 spheres along the wire, the strut and the head (why spheres:
+  below).
+
+**Checked against the model** (uniform 2 mT field, 0.75 of step-out, 2.68 Hz):
+
+| | sim-core | model, axis free | model, axis held |
+|---|---|---|---|
+| swimming alone (weightless), mm/s | 4.336 | 4.331 | 4.438 |
+| sinking alone, no field, mm/s | 3.760 | 3.759 (free to turn) | 3.715 |
+| climbing (both), mm/s | 0.619 | 0.617 | 0.724 |
+| spin past step-out at 1.5x (Adler), Hz | 1.364 | 1.366 | |
+
+- The swimming speed changes by 0.06% from 0.02 ms steps to 4 ms steps.
+- The axis is free to wobble. The field resists slow tilting but not the wobble at each turn.
+  `swim` and `shape` used the held axis, which is 2.5% optimistic on speed for this swimmer (1%
+  for `swim`'s). `shape`'s choice stands.
+- Released level with no field, it turns nose down in 11.3 s and then sinks spinning slowly
+  (0.026 Hz): a corkscrew turns as it falls.
+
+**Why steering takes more field than climbing.**
+
+- The magnet puts the centre of mass 2.8 mm from the nose and 26 mm from the tail, and drag on
+  sideways motion acts 10 mm behind it. Sinking pulls the nose down, like a dart.
+- Swimming level, the nose sits below the field's axis and swings to the side. The turning field
+  turns part of a tilting torque into a sideways one. Settled for 30 s:
+
+| B, mT | rate, Hz | nose down, deg | swung sideways, deg | in all, deg | forward, mm/s | sinking, mm/s |
+|---|---|---|---|---|---|---|
+| 2 | 2.68 | 21.2 | 31.6 | 37.4 | 3.70 | 4.53 |
+| 3 | 4.02 | 15.5 | 20.0 | 25.1 | 6.11 | 4.64 |
+| 4 | 5.36 | 11.9 | 14.8 | 18.9 | 8.38 | 4.67 |
+| 5 | 6.70 | 9.7 | 11.8 | 15.2 | 10.62 | 4.69 |
+
+- It sinks at 4.5-4.7 mm/s rather than the 2.85 of a swimmer held level, because the drooping
+  nose also swims it downwards.
+- Pitching up from level, with the field's axis swung up at a steady rate:
+  - at 2 mT it loses hold and tumbles even at 0.05 rad/s;
+  - 3 mT keeps up to 0.1 rad/s, 4 mT to 0.3, and 5 mT to 0.5 (the fastest tried).
+- Turning level keeps up to 0.3 rad/s at 2 mT and 0.5 rad/s at 3-5 mT. At full speed that is a
+  turning radius of 13-22 mm.
+- Standing up off the floor means levering the whole weight about the tail: 1.02e-5 N m (less
+  buoyancy's share). That is 63% of m B / 2, the most a 5 mT field turning across the swimmer
+  gives averaged over a turn. A still field does it cleanly:
+  - Pointing up, the still field rolls the magnet to the top.
+  - Turned slowly back over the swimmer, it levers the nose up with the magnet's full m B.
+  - 60 deg of turn stands the swimmer to 39 deg at 5 mT, 33 at 4, 25 at 3 and 10 at 2.
+  - Without this stand-up the turning field gets the swimmer off the floor too, but first drags
+    it along the floor and the insert: 12.7 s of contact against 0.3 s.
+
+**The course.** A printed insert in the jar: a post 8 mm across on the jar's axis, and two fins
+from it to the glass, each with a window 18 mm tall from 9 to 23.5 mm out. The windows are
+centred 10 mm below and 10 mm above mid-height, so the whole thing is a spiral staircase.
+
+- The swimmer starts lying on the floor.
+- The path for its middle laps the post at 14 mm. It is level within 25 deg of each window and
+  climbs 32 deg between them, 98.5 mm in all.
+- Two cameras see it at 30 frames a second, with 0.05 mm and 0.5 deg of noise, one frame late.
+- The controller is pure pursuit: a target 6 mm ahead on the path, at 6 mm/s. Its aim is tilted
+  up against sinking, using the model's drag at the swimmer's seen axis, plus a slow vertical
+  correction. The field's rate stays under 0.6 of step-out.
+- The field comes from the coils: cfsem on a 2 mm grid, within 7e-5 of cfsem direct.
+- Why the windows are 18 mm tall: aiming up against its sinking, the swimmer flies tilted, like
+  a helicopter. A 28.8 mm stick crossing a fin sweeps 28.8 mm times the sine of its tilt in
+  height (12 mm at 25 deg, 20 mm at 45). With 9 mm windows the first runs jammed against the
+  fin, tilted up to 65 deg.
+
+In the table, time touching counts after the body has left the floor. The coils' power is the
+mean over the run, and the worst pair's warming assumes no cooling.
+
+| run | finished | time, s | middle's distance from the path, rms / most, mm | touching, s | coils, W | worst coil, C |
+|---|---|---|---|---|---|---|
+| 2 mT | no (6%) | 41 | 2.5 / 4.0 | 30 | 11 | 0.5 |
+| 3 mT | no (28%) | 33 | 2.9 / 6.3 | 22 | 21 | 0.7 |
+| 4 mT | yes | 24.8 | 3.3 / 5.4 | 0.9 | 37.5 | 0.97 |
+| 5 mT | yes | 20.6 | 2.8 / 4.3 | 0.3 | 62.2 | 1.46 |
+| 5 mT, a perfectly uniform field | yes | 20.6 | 2.9 / 4.6 | 0.3 | 62.1 | 1.46 |
+| 5 mT, plus a loop on the seen axis | yes | 26.2 | 5.8 / 12.4 | 3.2 | 62.5 | 1.91 |
+| 5 mT, the field pointed at the target | yes | 29.8 | 5.4 / 8.8 | 0.9 | 60.0 | 1.82 |
+| 5 mT, no stand-up | yes | 32.4 | 2.8 / 5.9 | 12.7 | 63.3 | 2.23 |
+| 5 mT, 0.25 ms steps | yes | 20.3 | 2.8 / 4.4 | 0.3 | 62.1 | 1.44 |
+
+- **Robust:** over five camera-noise seeds the 5 mT run finishes in 20.5-20.6 s at 2.74-2.77 mm
+  rms. At 4 mT, three seeds finish in 24.7-24.8 s.
+- **Barely touches:** at 5 mT it brushes a fin and the glass for 0.3 s, pressing in under
+  0.2 mm. The time includes 4.8 s of standing up; it leaves the floor at 5.0 s.
+- **The coils' unevenness doesn't matter here:** a perfectly uniform field runs the course
+  within 0.1 s.
+- **Simple beat clever:** a loop on the seen axis (proportional and integral, to take out the
+  droop and swing) made runs worse. The axis settles over seconds and swings sideways when
+  pushed, and the loop fought it. Pointing the field straight at the target, with no allowance
+  for sinking, sags: twice the path error.
+- **Tail first:** in an early version, climbing hard near step-out, the swimmer slipped, tumbled
+  and carried on tail first. A cross-magnetized swimmer moves along the field's axis either way
+  round, and tail first its heavy nose hangs below like a pendulum. The controller now steers
+  the way the swimmer is actually going and keeps the field's rate under 0.6 of step-out.
+
+**Contact in sim-core** (`steer wall`, `steer contact`). The first course runs failed oddly. The
+swimmer sank 2-4 mm into the glass and once shot through a fin at 1 m/s. Probes trace it to
+sim-core 0.9's contact detection, and it shows at an everyday scale too: a 1 kg body of 5 cm
+radius, 2 ms steps, default settings.
+
+- A capsule lying on a box sinks to the box's centre, whichever geom is listed first. In
+  `collide_capsule_box` the contact normal's sign is the reverse of sphere-box's, so the contact
+  pulls the capsule in.
+- A capsule on a cylinder's flat end falls straight through, and so does a cylinder on a box, on
+  a cylinder's end or on its side. No contact is found.
+- Spheres rest on every shape, and capsules and cylinders rest on a plane.
+
+So the swimmer's contact shape is spheres, 143 of them, no farther apart than their radius. Then
+contact behaves: swimming into a wall at 5 mT, the swimmer presses in 0.006-0.07 mm.
+
+One weakness of the linearly implicit drag shows. After hitting the wall, the swimmer slides
+along it at 9.6 mm/s with 1 ms steps, 7.2 at 0.25 ms, and 6.4 with the plain drag at 20 us
+steps. The drag assumed the swimmer moves freely, so friction comes out too weak. Good runs
+barely touch (the 0.25 ms run matches the 1 ms one), so 1 ms is used. Logged in
+docs/CORTENFORGE.md.
+
+Not yet:
+
+- walls in the fluid model (near a wall drag rises and a corkscrew drifts sideways: Lauga et
+  al., Biophys. J. 90, 400 (2006));
+- the cameras' own calibration, and delay beyond one frame;
+- the field's slew (the coils' L/R is 3.2-3.6 ms);
+- a print of the insert.
+
+Design lessons for `shape`: a lighter nose, or the magnet nearer the middle, would cut the dart
+effect, and a shorter swimmer would turn and fit through smaller windows. Climbing alone was too
+narrow a score.
+
+Next: `scale`.
 
 ## What's still unsolved (in the field, not just here)
 

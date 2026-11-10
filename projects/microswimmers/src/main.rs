@@ -9,6 +9,7 @@ mod helix;
 mod rft;
 mod shape;
 mod simcore;
+mod steer;
 mod stokeslet;
 mod swim;
 mod swimmer;
@@ -18,6 +19,11 @@ fn main() {
     match mode.as_str() {
         "swim" => swim::run(),
         "coils" => coils::run(),
+        "steer" => match std::env::args().nth(2).as_deref() {
+            Some("wall") => steer::run_wall(),
+            Some("contact") => steer::run_contact(),
+            _ => steer::run(),
+        },
         "shape" => match std::env::args().nth(2).as_deref() {
             Some("part") => shape::run_part(),
             Some("probe") => shape::run_probe(),
@@ -29,7 +35,7 @@ fn main() {
             }
         }
         m => {
-            eprintln!("unknown mode {m}; modes: check, swim, coils, shape");
+            eprintln!("unknown mode {m}; modes: check, swim, coils, shape, steer");
             std::process::exit(2);
         }
     }
