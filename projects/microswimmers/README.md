@@ -427,6 +427,16 @@ nose is in neither.
 
 ## Steer (`steer`, 2026-11-09)
 
+Why this step matters: swimming isn't enough. The point of a drug-carrying swimmer is to take the
+medicine to one place. Chemotherapy is hard on people because the drug reaches fast-dividing
+cells all over the body, not just the tumour's: the lining of the gut, hair, the bone marrow that
+makes blood. A swimmer that can be steered to a tumour could release the drug there instead.
+The printed staircase below stands in for that trip: a winding route to a target, with walls to
+miss.
+
+What it leaves out: here a camera sees the swimmer through clear glycerol, which a body doesn't
+allow. Finding the swimmer inside a person stays on the unsolved list (below).
+
 In plain words: in CortenForge's physics engine, the swimmer `shape` chose stands itself up off
 the jar's floor, laps a printed post and threads two windows 20 mm apart in height, in 21 s at
 5 mT. Steering takes more field than climbing. At 2 mT it climbs straight up but can't pitch up
@@ -570,7 +580,8 @@ Not yet:
 
 - walls in the fluid model (near a wall drag rises and a corkscrew drifts sideways: Lauga et
   al., Biophys. J. 90, 400 (2006));
-- the cameras' own calibration, and delay beyond one frame;
+- the cameras' own calibration, and delay beyond one frame (and in a body there is no camera:
+  see "Seeing it" below);
 - the field's slew (the coils' L/R is 3.2-3.6 ms);
 - a print of the insert.
 
