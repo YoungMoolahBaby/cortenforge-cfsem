@@ -63,7 +63,7 @@ Something people can watch and understand is easier to trust than a promise.
 ## Plan
 
 `cargo run --release -p microswimmers -- <mode>`, modes added as they are built (so far:
-`check`, `swim`, `coils`, `shape`, `steer`).
+`check`, `swim`, `coils`, `shape`, `steer`, `scale`).
 
 1. `check` (done, results below): the physics before anything is built on it.
    - The reference model: regularized Stokeslets (Cortez, Fauci and Medovikov, Phys. Fluids 17,
@@ -94,8 +94,9 @@ Something people can watch and understand is easier to trust than a promise.
 5. `steer` (done, results below): sim-core with gravity, buoyancy and contact with the jar and a
    printed maze; a controller tilts the rotation plane to follow a path (sim-rl if a hand-tuned
    one isn't enough; it was enough).
-6. `scale`: the honest numbers. Coils sized for a human torso, their power and stored energy,
-   and the swimmer's speed against blood flow. This fills the section below with real figures.
+6. `scale` (done, results below): the honest numbers. What a changing field may do to a body,
+   the swimmer's speed at cell size against blood flow, and coils sized for a person: their
+   power and stored energy. This fills the unsolved list's points with real figures.
 7. Hardware: print the swimmer and the coil formers, a three-channel driver, the jar and a
    camera; measure speed against rotation rate and compare with `swim`.
 
@@ -591,17 +592,200 @@ narrow a score.
 
 Next: `scale`.
 
+## Scale (`scale`, 2026-11-09)
+
+Why this step matters: the desk shows the physics, but the question a patient would ask is
+whether it could work in them, and what it would take. This step answers with numbers, the
+good ones and the bad.
+
+In plain words: in a person the limit isn't the coils' power, it's the body. A changing
+magnetic field induces an electric field in tissue, and a strong enough one fires nerves. That
+caps how fast the field may turn times how strong it is. Within that cap, a swimmer with a
+magnet as strong as the desk's goes 21-32 of its own lengths a second (about 100 right at the
+point where nerves fire). That can match the average flow in the smallest blood vessels, the
+capillaries and venules, if the swimmer is 10-150 um long, and comes nowhere near it in arteries
+and veins. Coils round a person are room-sized (about 3 m across, 5 t of copper in the desk's
+proportions) but draw only tens to hundreds of watts. What's hard is reversing them hundreds of
+times a second: kilovolts and tens to thousands of kVA. About 25 s.
+
+**What the body allows** (ICNIRP, "Guidelines for limiting exposure to time-varying electric
+and magnetic fields (1 Hz to 100 kHz)", Health Phys. 99, 818 (2010)).
+
+- A field of strength B0 turning at f changes at 2 pi f B0. The electric field it induces grows
+  with that, and with the size of the loops of tissue it can drive current round.
+- ICNIRP puts the threshold where nerves fire at 4 V/m (the field inside the body, rms). It
+  limits the public to a tenth of that, 0.4 V/m, and workers to a fifth, 0.8 V/m, up to 3 kHz.
+  The brain and retina have a lower limit below 1 kHz (400 Hz for workers), set by phosphenes,
+  harmless flickers of light.
+- Medical exposure is outside ICNIRP's guidelines: what a patient may be exposed to is a medical
+  decision. MRI scanners, the nearest practice, keep their switching fields under the level
+  that stimulates nerves (IEC 60601-2-33). So read the public limit as a cautious floor and the
+  nerve threshold as a ceiling no one would run at.
+- The body here is a uniform ellipsoid 36 x 24 x 170 cm, for which the induced field has an exact
+  form (checked: its curl is -dB/dt to 8e-14 and it runs along the surface to 2e-16). A 50 Hz
+  field gives 26-54 mV/m per mT, inside the 20-60 that detailed body models give in the skin
+  (ICNIRP), so the smooth body doesn't flatter the numbers.
+- A turning field gives at most 0.122 m x 2 pi f B0, depending on the heading (0.083 m at best).
+  The limits are rms values of sinusoids; a turning field's largest value is held to the same
+  peak.
+
+| limit | V/m | f B0 under | for example |
+|---|---|---|---|
+| public | 0.4 | 523 Hz mT | 1 mT turning at 523 Hz, or 10 mT at 52 Hz |
+| at work | 0.8 | 1045 Hz mT | 1 mT at 1045 Hz |
+| nerves fire | 4 | 5226 Hz mT | 1 mT at 5226 Hz, or 10 mT at 523 Hz |
+
+These coils hold the whole person, so the head is in the field too. Then the brain's limit caps
+the field itself: 0.61 mT for the public from 25 Hz to 1 kHz, 3.0 mT for workers up to 400 Hz.
+(Taking 33 mV/m per mT at 50 Hz, the top of the 23-33 that detailed models give in the brain.)
+
+**The swimmer at any size.** Slow flow has no length of its own, so the model scales exactly.
+Checked: the model run at a thousandth of the size, in blood, matches the desk's scaled to
+4e-10.
+
+- A turn moves the swimmer 0.056 of its length, at any size.
+- With a magnet of the same material, step-out doesn't depend on size: 840 Hz per mT in blood,
+  because the magnet shrinks exactly as fast as the drag on turning. (Blood taken at 3 mPa s;
+  it is about three times as viscous as water, Guyton and Hall, Textbook of Medical Physiology.
+  The speeds below go as one over the square root of it.)
+- So speed is length times rate, and the body caps the rate. A stronger magnet keeps up at a
+  weaker field, which lets the field turn faster.
+
+The fastest drive each limit allows, at 0.75 of step-out, for the worst heading:
+
+| limit | magnet | f Hz | B0 mT | lengths/s | head in the field: f Hz | B0 mT | lengths/s |
+|---|---|---|---|---|---|---|---|
+| public | the desk's | 574 | 0.91 | 32.2 | 382 | 0.61 | 21.4 |
+| public | a tenth as strong | 181 | 2.88 | 10.2 | 38 | 0.61 | 2.1 |
+| at work | the desk's | 812 | 1.29 | 45.5 | 812 | 1.29 | 45.5 |
+| at work | a tenth as strong | 257 | 4.07 | 14.4 | 191 | 3.03 | 10.7 |
+| nerves fire | the desk's | 1815 | 2.88 | 101.7 | (same) | | |
+| nerves fire | a tenth as strong | 574 | 9.11 | 32.2 | (same) | | |
+
+At the nerve threshold the brain is held to the same 4 V/m. Both drives there run above 400 Hz,
+where ICNIRP says the thresholds for phosphenes and for nerves meet.
+
+The desk's solid NdFeB magnet (1.3 T) is the best case. The 2009 swimmers cited at the top
+carried thin magnetic layers (nickel, cobalt), not a solid magnet; "a tenth as strong" shows how
+fast the numbers fall.
+
+By size, at the public limit with the desk's magnet (574 Hz, 0.91 mT):
+
+| length | speed | sinking | heat's jiggle in 1 s | the field's grip (m B0 / kT) | Re | gradient to pull as fast |
+|---|---|---|---|---|---|---|
+| 2 um | 64 um/s | 10 nm/s | 0.77 um | 460 | 5e-5 | 430 T/m |
+| 10 um | 0.32 mm/s | 0.24 um/s | 0.35 um | 6e4 | 1e-3 | 85 T/m |
+| 30 um | 0.96 mm/s | 2.2 um/s | 0.20 um | 2e6 | 0.010 | 28 T/m |
+| 100 um | 3.2 mm/s | 24 um/s | 0.11 um | 6e7 | 0.11 | 8.5 T/m |
+| 300 um | 9.7 mm/s | 0.22 mm/s | 63 nm | 2e9 | 1.0 | 2.8 T/m |
+| 1 mm | 32 mm/s | 2.4 mm/s | 34 nm | 6e10 | 11 | 0.85 T/m |
+
+- **Gravity fades.** Sinking goes as the length squared, swimming as the length. At 30 um the
+  swimmer sinks at 0.2% of its swimming speed, so the nose-down droop that made `steer` need
+  4-5 mT is gone at cell size.
+- **Heat barely jiggles it.** It drifts under a micrometre in a second, and even at 2 um the
+  field's grip on the magnet is hundreds of times the thermal energy.
+- **Inertia stays out below about 300 um** (Re under 1). Above that the model no longer holds.
+- **Pulling loses as the swimmer shrinks.** The gradient that would pull it as fast as it swims
+  goes as one over its length. At 30 um that is 28 T/m: 700 times the 40 mT/m of a clinical MRI
+  scanner's gradients, and 95 times the 300 mT/m of the strongest built for people (McNab et al.
+  and Setsompop et al., NeuroImage 80 (2013)). That is Abbott et al.'s argument (top of this
+  page) in numbers. At millimetres, pulling works: an MRI scanner steered a 1.5 mm bead along a
+  pig's carotid artery (Martel et al., Appl. Phys. Lett. 90, 114105 (2007)).
+
+**Against the blood.** Guyton and Hall give each kind of vessel's total cross-section. The same
+blood passes through each in turn, 33 cm/s in the aorta's 2.5 cm^2, so the mean flow is
+33 cm/s x 2.5 cm^2 / area (in the capillaries 0.33 mm/s; they give 0.3). The length a swimmer
+needs to match it:
+
+| vessel | mean flow | public | public, head in | public, a tenth | nerves fire |
+|---|---|---|---|---|---|
+| aorta | 330 mm/s | 10 mm* | 15 mm* | 32 mm* | 3.3 mm* |
+| small arteries | 41 mm/s | 1.3 mm* | 1.9 mm* | 4.1 mm* | 0.41 mm* |
+| arterioles | 21 mm/s | 0.64 mm* | 0.96 mm* | 2.0 mm* | 0.20 mm* |
+| capillaries | 0.33 mm/s | 10 um | 15 um | 32 um | 3.2 um |
+| venules | 3.3 mm/s | 0.10 mm | 0.15 mm | 0.32 mm | 33 um |
+| small veins | 10 mm/s | 0.32 mm* | 0.48 mm* | 1.0 mm* | 0.10 mm |
+| venae cavae | 103 mm/s | 3.2 mm* | 4.8 mm* | 10 mm* | 1.0 mm* |
+
+The desk's magnet except where marked. \* Reynolds number over 1: inertia matters, outside the
+model.
+
+- **Only the slowest blood is in reach.** At the public limit, a swimmer 10-15 um long (1.3-1.9
+  um across) could just match the mean flow in the capillaries, which are about a red blood
+  cell's width. One 0.10-0.15 mm long could match the venules. A tenth the magnet triples those
+  lengths.
+- **Everywhere faster, the blood wins.** A swimmer that could keep up would be wider than an
+  arteriole, or millimetres to centimetres long, where inertia takes over. Only right at the
+  nerve threshold do the small veins come within reach, for a 0.1 mm swimmer.
+- **These are means.** Flow in arteries pulses. Near a wall flow is slowest (zero at the wall
+  itself), which swarms that roll along the wall use: Ahmed et al. went upstream at up to
+  1.2 mm/s, in glass channels (Nat. Mach. Intell. 3, 116 (2021)). And at cell size blood isn't a
+  smooth liquid: red cells as big as the swimmer crowd it. The model leaves that out.
+
+**The machine.** The desk's three coil pairs with every length 12.5 times, the wire too. The
+jar's place becomes a cylinder 70 cm across, about a wide-bore MRI scanner's opening, that the
+patient lies in. The field's evenness is the desk's: within 2.5% over a cylinder 62 cm across
+and 62 cm tall. Checked against the desk's coils: field per amp, resistance, inductance and
+copper scale as they should, to 6e-14.
+
+- 2.94 x 2.94 x 2.44 m outside the windings, with 48 mm to spare round the cylinder.
+- 5.4 t of copper in the desk's proportions: 169 turns a coil of 10 mm rod. Pairs of 0.94,
+  1.15 and 1.40 m mean radius, 0.21-0.36 H and 0.42-0.63 ohm each.
+
+Driving them, for the worst heading:
+
+| drive | B0 mT | f Hz | mean W | stored J | reactive kVA | a pair's peak kV (338 turns) |
+|---|---|---|---|---|---|---|
+| public, the desk's magnet | 0.91 | 574 | 35 | 19 | 70 | 10.9 |
+| public, head in | 0.61 | 382 | 15 | 8.5 | 21 | 4.8 |
+| public, a tenth | 2.88 | 181 | 347 | 193 | 220 | 10.9 |
+| at work, the desk's | 1.29 | 812 | 69 | 39 | 197 | 21.7 |
+| nerves fire, the desk's | 2.88 | 1815 | 347 | 193 | 2197 | 109 |
+| nerves fire, a tenth | 9.11 | 574 | 3469 | 1927 | 6946 | 109 |
+| 5 mT (the desk's top field) | 5.0 | 105 | 1046 | 581 | 381 | 10.9 |
+
+- **Not power-hungry.** The copper loses tens to hundreds of watts at the fields a
+  strong-magnet swimmer needs, and with no cooling it warms 0.1 C an hour at the public drive.
+  Power times copper mass is about fixed for this shape, so a tenth of the copper (540 kg) would
+  do at about ten times the power (0.35 kW). Size, not power, makes the machine big: it has to go round a
+  person.
+- **The reversal is the hard part.** Each pair's stored energy flows in and out twice a turn:
+  70 kVA of reactive power at the public drive, megavolt-amps at the nerve threshold. A bank of
+  capacitors tuned to the coils can hold that energy, so the amplifier only makes up the
+  copper's loss.
+- **The volts per turn are set by the body's limit.** Both come from how fast the field changes:
+  at the public cap, 10.9 kV across a pair's 338 turns (32 V a turn), whatever the field. Fewer,
+  thicker turns lower the voltage and raise the current; the kVA stay the same.
+- At these rates copper's skin depth is 1.6-6.5 mm, so the 10 mm rod would have to be stranded
+  (Litz) wire for its resistance to stay as computed.
+
+Not yet:
+
+- a coil set designed for a person (this is the desk's, scaled up; a flatter set, or one that
+  leaves the head out, would change the numbers);
+- the body's real tissues, whose conductivities differ, so local fields can be higher than the
+  smooth body's;
+- eddy currents in nearby metal, and the staff's exposure beside the coils;
+- red cells, walls and pulsing flow in the fluid model.
+
+Next: hardware (plan step 7): print the swimmer, wind the coils, measure.
+
 ## What's still unsolved (in the field, not just here)
 
 - Seeing it. Tracking something cell-sized deep in a body in real time is hard; ultrasound, MRI
   and X-ray each have trade-offs. Our camera works only because the jar is clear.
-- Blood flow. Blood in arteries moves far faster than these swimmers, so most work targets
-  slow places: fluid-filled cavities, the eye, tissue, the smallest vessels.
+- Blood flow. Blood in arteries moves far faster than these swimmers. Within the body's limits
+  on changing fields, even a swimmer with a strong magnet only matches the mean flow in the
+  smallest vessels, the capillaries and venules (`scale`). So most work targets slow places:
+  fluid-filled cavities, the eye, tissue, the smallest vessels.
 - The body fights back. The immune system clears foreign particles, and every material must be
   safe.
 - Getting them out. They have to be retrieved or dissolve safely.
-- The size of the machine. Coils that make a strong, even rotating field over a whole torso are
-  large and power-hungry (`scale` puts numbers on it).
+- The size of the machine. Coils that make an even turning field round a person are room-sized
+  (about 3 m across in `scale`, tonnes of copper). Their power is modest; reversing them
+  hundreds of times a second takes kilovolts and tens to thousands of kVA, and the body itself
+  caps how fast the field may change.
 - Proof. Going from mouse studies to human trials takes years of safety work.
 
 ## How we talk about it

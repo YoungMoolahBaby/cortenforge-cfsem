@@ -7,6 +7,7 @@ mod check;
 mod coils;
 mod helix;
 mod rft;
+mod scale;
 mod shape;
 mod simcore;
 mod steer;
@@ -19,6 +20,7 @@ fn main() {
     match mode.as_str() {
         "swim" => swim::run(),
         "coils" => coils::run(),
+        "scale" => scale::run(),
         "steer" => match std::env::args().nth(2).as_deref() {
             Some("wall") => steer::run_wall(),
             Some("contact") => steer::run_contact(),
@@ -35,7 +37,7 @@ fn main() {
             }
         }
         m => {
-            eprintln!("unknown mode {m}; modes: check, swim, coils, shape, steer");
+            eprintln!("unknown mode {m}; modes: check, swim, coils, shape, steer, scale");
             std::process::exit(2);
         }
     }

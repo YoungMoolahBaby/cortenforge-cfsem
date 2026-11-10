@@ -101,7 +101,18 @@ pure pursuit, its aim corrected for sinking, threads a printed spiral staircase 
 with windows 20 mm apart in height) in 20.6 s at 5 mT (2.8 mm rms off the path, 0.3 s brushing,
 62 W, +1.5 C) or 24.8 s at 4 mT; a loop on the seen axis made it worse. Two sim-core contact
 bugs found and logged (capsule-box pushes the wrong way; cylinder contacts missed), worked round
-with sphere contacts. Next: `scale`.
+with sphere contacts. `scale` (~25 s): what a person allows. A changing field induces an electric
+field in the body (an ellipsoid stand-in, exact, 26-54 mV/m per mT at 50 Hz against detailed
+models' 20-60), so ICNIRP 2010's limits cap f B0: 523 Hz mT for the public, 5226 where nerves fire.
+The model scales exactly (checked at a thousandth of the size to 4e-10): step-out doesn't depend on
+size (840 Hz per mT in blood with the desk's magnet), so the cap sets the speed in lengths a
+second: 32 at the public limit (21 with the head in the field), 102 at the nerve threshold, 3x
+less with a magnet a tenth as strong. Against Guyton and Hall's mean flows only capillaries
+(a 10 um swimmer) and venules (0.1 mm) are in reach; everything faster needs a swimmer wider than
+the vessel or past Stokes flow (small veins only right at the nerve threshold, for 0.1 mm). Gravity fades (0.2% of swimming at 30 um), and pulling needs
+28 T/m at 30 um (700x a clinical MRI's gradient). The desk's coils x12.5 round a 70 cm patient
+bore: 2.9 m across, 5.4 t of copper, 35 W at the public drive but 70 kVA reactive and 32 V a
+turn (MVA at the nerve threshold). Next: hardware.
 The other projects are a README each until they start.
 
 ## Order

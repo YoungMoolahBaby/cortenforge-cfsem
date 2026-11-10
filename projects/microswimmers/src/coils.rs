@@ -20,7 +20,7 @@ use crate::rft::swim_locked;
 use crate::swimmer::Swimmer;
 
 /// (J/(kg K)) copper.
-const C_CU: f64 = 385.0;
+pub(crate) const C_CU: f64 = 385.0;
 /// The jar, upright on z: glass outer radius and half height, and the glycerol inside.
 pub(crate) const JAR_R: f64 = 28e-3;
 const JAR_H: f64 = 30e-3;
@@ -32,7 +32,7 @@ const CORE: f64 = 10e-3;
 const KAPPA: f64 = 0.75;
 
 pub(crate) struct Pair {
-    name: &'static str,
+    pub(crate) name: &'static str,
     pub(crate) axis: V3,
     u: V3,
     v: V3,
@@ -88,7 +88,7 @@ impl Pair {
     }
 
     /// Points on the winding packs' outer surfaces (each pack's section perimeter, swept round).
-    fn surface(&self) -> Vec<V3> {
+    pub(crate) fn surface(&self) -> Vec<V3> {
         let mut out = Vec::new();
         for p in &self.coil.packs {
             let (r0, r1) = (p.r_in, p.r_in + p.depth());
@@ -150,12 +150,23 @@ pub(crate) fn plane(n: &V3) -> (V3, V3) {
 
 /// The coil set: x, y and z pairs (pair k's axis is world axis k), AWG 20, 13 x 13 turns a coil.
 pub(crate) fn pairs() -> [Pair; 3] {
-    let wire = Wire::awg(20);
+    pairs_scaled(1.0)
+}
+
+/// The coil set with every length times `s`, the wire's thickness too (the same 169 turns a
+/// coil, of copper `s` times as thick).
+pub(crate) fn pairs_scaled(s: f64) -> [Pair; 3] {
+    let w = Wire::awg(20);
+    let wire = Wire {
+        awg: w.awg,
+        bare: w.bare * s,
+        outer: w.outer * s,
+    };
     let n = 13;
     [
-        Pair::new("x", V3::x(), V3::y(), 75e-3, wire, n),
-        Pair::new("y", V3::y(), V3::z(), 92e-3, wire, n),
-        Pair::new("z", V3::z(), V3::x(), 112e-3, wire, n),
+        Pair::new("x", V3::x(), V3::y(), 75e-3 * s, wire, n),
+        Pair::new("y", V3::y(), V3::z(), 92e-3 * s, wire, n),
+        Pair::new("z", V3::z(), V3::x(), 112e-3 * s, wire, n),
     ]
 }
 
